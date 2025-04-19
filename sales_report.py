@@ -6,6 +6,7 @@ from datetime import datetime
 import pdfkit
 import base64
 from io import BytesIO
+import unicodedata
 
 # Configuración de la página
 st.set_page_config(page_title="Informe de Análisis de Ventas", layout="wide")
@@ -21,85 +22,79 @@ def format_number(num):
         return f"{num / 1000:.1f}K"
     return f"{num:.0f}"
 
+# Normalizar nombres para coincidencias
+def normalize_name(name):
+    if not isinstance(name, str):
+        return ''
+    # Convertir a minúsculas, eliminar acentos y reemplazar caracteres especiales
+    name = name.strip().lower()
+    name = ''.join(c for c in unicodedata.normalize('NFD', name) if unicodedata.category(c) != 'Mn')
+    return name.replace(' ', '')
+
 # Procesar datos de usuarios
 def process_user_data(user_df):
     # Verificar columnas requeridas
-    if 'Nombre completo' not in user_df.columns:
-        raise ValueError("La columna 'Nombre completo' no se encuentra en users_data.csv")
+    required_columns = ['Nombre', 'Cédula', 'Puesto', 'Tipo']
+    missing_columns = [col for col in required_columns if col not in user_df.columns]
+    if missing_columns:
+        raise ValueError(f"Columnas faltantes en users_data.csv: {', '.join(missing_columns)}")
     
-    processed_users = []
-    for _, row in user_df.iterrows():
-        if pd.isna(row['Nombre completo']) or row['Nombre completo'].strip() == '':
-            continue  # Ignorar filas vacías
-        
-        # Extraer tipo y nombre del campo 'Nombre completo'
-        name_full = row['Nombre completo']
-        name_parts = name_full.split(', ')
-        if len(name_parts) > 1:
-            tipo = name_parts[0].replace('ASEAVNA ', '')  # Ejemplo: "ASEAVNA BEN1_70" -> "BEN1_70"
-            name = name_parts[1]
-        else:
-            tipo = name_parts[0]  # Para casos como "AVNA VISITAS"
-            name = name_parts[0]
-
-        processed_users.append({
-            'name': name,
-            'cedula': 'Desconocido',  # No hay columna Cédula en users_data.csv
-            'position': 'No especificado',  # No hay columna Puesto en users_data.csv
-            'tipo': tipo
-        })
+    # Filtrar filas con Nombre válido
+    user_df = user_df[user_df['Nombre'].notna() & (user_df['Nombre'].str.strip() != '')].copy()
     
-    return pd.DataFrame(processed_users)
+    # Crear columnas procesadas
+    user_df['name'] = user_df['Nombre']
+    user_df['cedula'] = user_df['Cédula'].astype(str).where(user_df['Cédula'].notna(), 'Desconocido')
+    user_df['position'] = user_df['Puesto'].where(user_df['Puesto'].notna(), 'No especificado')
+    user_df['tipo'] = user_df['Tipo'].where(user_df['Tipo'].notna(), 'Desconocido')
+    
+    # Normalizar nombres para vinculación
+    user_df['normalized_name'] = user_df['name'].apply(normalize_name)
+    
+    return user_df[['name', 'cedula', 'position', 'tipo', 'normalized_name']]
 
 # Procesar datos de ventas
 def process_sales_data(sales_df, user_df):
     # Crear diccionario de usuarios para vinculación
-    user_map = {}
-    for _, user in user_df.iterrows():
-        # Normalizar el nombre para la vinculación (quitar espacios, convertir a minúsculas, ignorar acentos)
-        normalized_name = user['name'].strip().lower()
-        # Reemplazar caracteres comunes con acentos para mejorar coincidencias
-        normalized_name = (normalized_name.replace('á', 'a').replace('é', 'e')
-                          .replace('í', 'i').replace('ó', 'o').replace('ú', 'u'))
-        user_map[normalized_name] = {
-            'name': user['name'],  # Usar el nombre ya procesado
-            'cedula': user['cedula'],  # Usar la cédula ya procesada
-            'position': user['position'],  # Usar el puesto ya procesado
-            'tipo': user['tipo']  # Usar el tipo ya procesado
-        }
-
-    processed_data = []
-    for _, row in sales_df.iterrows():
+    user_map = {row['normalized_name']: {
+        'name': row['name'],
+        'cedula': row['cedula'],
+        'position': row['position'],
+        'tipo': row['tipo']
+    } for _, row in user_df.iterrows()}
+    
+    # Procesar filas de ventas
+    def process_row(row):
         quantity = float(row['Cant. ordenada']) if pd.notna(row['Cant. ordenada']) else 0
         unit_price = float(row['Precio unitario']) if pd.notna(row['Precio unitario']) else 0
         total = float(row['Total']) if pd.notna(row['Total']) else 0
-        date_str = row['Fecha de la orden']
         try:
-            date = pd.to_datetime(date_str, format='%Y-%m-%d %H:%M:%S')
+            date = pd.to_datetime(row['Fecha de la orden'], format='%Y-%m-%d %H:%M:%S')
         except:
-            date = None
-
+            return None
+        
         if not date or not row['Cliente']:
-            continue
-
+            return None
+        
         # Extraer tipo y nombre del cliente
         client_parts = row['Cliente'].split(', ')
-        tipo = 'BEN1_70' if 'BEN1_70' in client_parts[0] else 'BEN2_62' if 'BEN2_62' in client_parts[0] else client_parts[0]
+        tipo = ('BEN1_70' if 'BEN1_70' in client_parts[0] else
+                'BEN2_62' if 'BEN2_62' in client_parts[0] else
+                client_parts[0].replace('ASEAVNA ', ''))
         client_name = client_parts[1] if len(client_parts) > 1 else client_parts[0]
-        # Normalizar el nombre del cliente
-        normalized_client_name = client_name.strip().lower()
-        normalized_client_name = (normalized_client_name.replace('á', 'a').replace('é', 'e')
-                                 .replace('í', 'i').replace('ó', 'o').replace('ú', 'u'))
+        
+        # Normalizar nombre del cliente
+        normalized_client_name = normalize_name(client_name)
         user_info = user_map.get(normalized_client_name, {
             'name': client_name,
             'cedula': 'Desconocido',
             'position': 'No especificado',
             'tipo': tipo
         })
-
-        processed_data.append({
+        
+        return {
             'client': client_name,
-            'name': user_info['name'],  # Nombre vinculado desde users_data.csv
+            'name': user_info['name'],
             'company': row['Empresa'] if pd.notna(row['Empresa']) else '',
             'date': date,
             'order': row['Orden'] if pd.notna(row['Orden']) else '',
@@ -109,16 +104,23 @@ def process_sales_data(sales_df, user_df):
             'product': row['Variante del producto'] if pd.notna(row['Variante del producto']) else '',
             'seller': row['Vendedor'] if pd.notna(row['Vendedor']) else '',
             'cedula': user_info['cedula'],
-            'position': user_info['position'],  # Incluir el puesto
+            'position': user_info['position'],
             'tipo': user_info['tipo'],
-            'cost_center': 'CostCenter_BEN1' if tipo == 'BEN1_70' else 'CostCenter_BEN2' if tipo == 'BEN2_62' else 'CostCenter_Other'
-        })
-
-    # Filtrar filas inválidas y eliminar duplicados
+            'cost_center': ('CostCenter_BEN1' if tipo == 'BEN1_70' else
+                           'CostCenter_BEN2' if tipo == 'BEN2_62' else
+                           'CostCenter_Other')
+        }
+    
+    # Aplicar procesamiento a todas las filas
+    processed_data = [process_row(row) for _, row in sales_df.iterrows()]
+    processed_data = [d for d in processed_data if d is not None]
+    
+    # Crear DataFrame y filtrar
     processed_df = pd.DataFrame(processed_data)
     processed_df = processed_df[processed_df['total'] != 0]
     processed_df['key'] = processed_df['order'] + '-' + processed_df['client'] + '-' + processed_df['product']
     processed_df = processed_df.drop_duplicates(subset='key').drop(columns='key')
+    
     return processed_df
 
 # Aplicar subsidios
@@ -127,18 +129,24 @@ def apply_subsidies(df):
     df['employee_payment'] = df['total']
     df['asoavna_contribution'] = 0
 
-    df.loc[(df['tipo'] == 'BEN1_70') & (df['product'] == 'Almuerzo Ejecutivo Aseavna'), 'subsidy'] = 2100
-    df.loc[(df['tipo'] == 'BEN1_70') & (df['product'] == 'Almuerzo Ejecutivo Aseavna'), 'employee_payment'] = 1000
-    df.loc[(df['tipo'] == 'BEN1_70') & (df['product'] == 'Almuerzo Ejecutivo Aseavna'), 'asoavna_contribution'] = 155
+    # Subsidios para BEN1_70
+    ben1_mask = (df['tipo'] == 'BEN1_70') & (df['product'] == 'Almuerzo Ejecutivo Aseavna')
+    df.loc[ben1_mask, 'subsidy'] = 2100
+    df.loc[ben1_mask, 'employee_payment'] = 1000
+    df.loc[ben1_mask, 'asoavna_contribution'] = 155
 
-    df.loc[(df['tipo'] == 'BEN2_62') & (df['product'] == 'Almuerzo Ejecutivo Aseavna'), 'subsidy'] = 1800
-    df.loc[(df['tipo'] == 'BEN2_62') & (df['product'] == 'Almuerzo Ejecutivo Aseavna'), 'employee_payment'] = 1300
-    df.loc[(df['tipo'] == 'BEN2_62') & (df['product'] == 'Almuerzo Ejecutivo Aseavna'), 'asoavna_contribution'] = 155
+    # Subsidios para BEN2_62
+    ben2_mask = (df['tipo'] == 'BEN2_62') & (df['product'] == 'Almuerzo Ejecutivo Aseavna')
+    df.loc[ben2_mask, 'subsidy'] = 1800
+    df.loc[ben2_mask, 'employee_payment'] = 1300
+    df.loc[ben2_mask, 'asoavna_contribution'] = 155
 
-    for tipo in ['AVNA VISITAS', 'AVNA GB', 'AVNA ONBOARDING', 'Practicante']:
-        df.loc[df['tipo'] == tipo, 'subsidy'] = df['total']
-        df.loc[df['tipo'] == tipo, 'employee_payment'] = 0
-        df.loc[df['tipo'] == tipo, 'asoavna_contribution'] = 0
+    # Subsidios completos para tipos especiales
+    special_types = ['AVNA VISITAS', 'AVNA GB', 'AVNA ONBOARDING', 'Practicante']
+    special_mask = df['tipo'].isin(special_types)
+    df.loc[special_mask, 'subsidy'] = df.loc[special_mask, 'total']
+    df.loc[special_mask, 'employee_payment'] = 0
+    df.loc[special_mask, 'asoavna_contribution'] = 0
 
     return df
 
@@ -176,9 +184,13 @@ def main():
         return
 
     # Procesar datos
-    user_data = process_user_data(user_df)
-    sales_data = process_sales_data(sales_df, user_data)
-    sales_data = apply_subsidies(sales_data)
+    try:
+        user_data = process_user_data(user_df)
+        sales_data = process_sales_data(sales_df, user_data)
+        sales_data = apply_subsidies(sales_data)
+    except Exception as e:
+        st.error(f"Error al procesar los datos: {e}")
+        return
 
     # Estado para filtros
     if 'selected_tipo' not in st.session_state:
@@ -217,8 +229,8 @@ def main():
         ]
     if st.session_state.search_query:
         filtered_data = filtered_data[
-            filtered_data['client'].str.lower().str.contains(st.session_state.search_query.lower()) |
-            filtered_data['cedula'].str.lower().str.contains(st.session_state.search_query.lower())
+            filtered_data['client'].str.lower().str.contains(st.session_state.search_query.lower(), na=False) |
+            filtered_data['cedula'].str.lower().str.contains(st.session_state.search_query.lower(), na=False)
         ]
     if st.session_state.selected_cost_center != 'All':
         filtered_data = filtered_data[filtered_data['cost_center'] == st.session_state.selected_cost_center]

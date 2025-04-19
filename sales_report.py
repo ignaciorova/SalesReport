@@ -24,16 +24,16 @@ def format_number(num):
 # Procesar datos de usuarios
 def process_user_data(user_df):
     # Verificar columnas requeridas
-    if 'Nombre completo' not in user_df.columns:
+    if 'Nombre' not in user_df.columns:
         raise ValueError("La columna 'Nombre completo' no se encuentra en users_data.csv")
     
     processed_users = []
     for _, row in user_df.iterrows():
-        if pd.isna(row['Nombre completo']) or row['Nombre completo'].strip() == '':
+        if pd.isna(row['Nombre']) or row['Nombre'].strip() == '':
             continue  # Ignorar filas vacías
         
-        # Extraer tipo y nombre del campo 'Nombre completo'
-        name_full = row['Nombre completo']
+        # Extraer tipo y nombre del campo 'Nombre'
+        name_full = row['Nombre']
         name_parts = name_full.split(', ')
         if len(name_parts) > 1:
             tipo = name_parts[0].replace('ASEAVNA ', '')  # Ejemplo: "ASEAVNA BEN1_70" -> "BEN1_70"

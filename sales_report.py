@@ -10,6 +10,22 @@ from io import BytesIO
 # Configuración de la página
 st.set_page_config(page_title="Informe de Análisis de Ventas", layout="wide")
 
+# Función para convertir fecha serial de Excel a formato datetime
+def excel_serial_to_date(serial):
+    try:
+        utc_days = int(serial - 25569)
+        utc_value = utc_days * 86400
+        date_info = datetime.utcfromtimestamp(utc_value)
+        fractional_day = serial - int(serial) + 0.0000001
+        total_seconds = int(86400 * fractional_day)
+        seconds = total_seconds % 60
+        total_seconds -= seconds
+        hours = total_seconds // (60 * 60)
+        minutes = (total_seconds // 60) % 60
+        return datetime(date_info.year, date_info.month, date_info.day, hours, minutes, seconds)
+    except:
+        return None
+
 # Formatear números con abreviaturas
 def format_number(num):
     if not isinstance(num, (int, float)) or pd.isna(num):
@@ -21,51 +37,13 @@ def format_number(num):
         return f"{num / 1000:.1f}K"
     return f"{num:.0f}"
 
-# Procesar datos de usuarios
-def process_user_data(user_df):
-    # Verificar columnas requeridas
-    if 'Nombre completo' not in user_df.columns:
-        raise ValueError("La columna 'Nombre completo' no se encuentra en users_data.csv")
-    
-    processed_users = []
-    for _, row in user_df.iterrows():
-        if pd.isna(row['Nombre completo']) or row['Nombre completo'].strip() == '':
-            continue  # Ignorar filas vacías
-        
-        # Extraer tipo y nombre del campo 'Nombre completo'
-        name_full = row['Nombre completo']
-        name_parts = name_full.split(', ')
-        if len(name_parts) > 1:
-            tipo = name_parts[0].replace('ASEAVNA ', '')  # Ejemplo: "ASEAVNA BEN1_70" -> "BEN1_70"
-            name = name_parts[1]
-        else:
-            tipo = name_parts[0]  # Para casos como "AVNA VISITAS"
-            name = name_parts[0]
-
-        processed_users.append({
-            'name': name,
-            'cedula': 'Desconocido',  # No hay columna Cédula en users_data.csv
-            'position': 'No especificado',  # No hay columna Puesto en users_data.csv
-            'tipo': tipo
-        })
-    
-    return pd.DataFrame(processed_users)
-
 # Procesar datos de ventas
 def process_sales_data(sales_df, user_df):
-    # Crear diccionario de usuarios para vinculación
     user_map = {}
     for _, user in user_df.iterrows():
-        # Normalizar el nombre para la vinculación (quitar espacios, convertir a minúsculas, ignorar acentos)
-        normalized_name = user['name'].strip().lower()
-        # Reemplazar caracteres comunes con acentos para mejorar coincidencias
-        normalized_name = (normalized_name.replace('á', 'a').replace('é', 'e')
-                          .replace('í', 'i').replace('ó', 'o').replace('ú', 'u'))
-        user_map[normalized_name] = {
-            'name': user['name'],  # Usar el nombre ya procesado
-            'cedula': user['cedula'],  # Usar la cédula ya procesada
-            'position': user['position'],  # Usar el puesto ya procesado
-            'tipo': user['tipo']  # Usar el tipo ya procesado
+        user_map[user['Nombre']] = {
+            'cedula': user['Cédula'],
+            'tipo': user['Tipo']
         }
 
     processed_data = []
@@ -73,33 +51,19 @@ def process_sales_data(sales_df, user_df):
         quantity = float(row['Cant. ordenada']) if pd.notna(row['Cant. ordenada']) else 0
         unit_price = float(row['Precio unitario']) if pd.notna(row['Precio unitario']) else 0
         total = float(row['Total']) if pd.notna(row['Total']) else 0
-        date_str = row['Fecha de la orden']
-        try:
-            date = pd.to_datetime(date_str, format='%Y-%m-%d %H:%M:%S')
-        except:
-            date = None
+        date_serial = float(row['Fecha de la orden']) if pd.notna(row['Fecha de la orden']) else None
+        date = excel_serial_to_date(date_serial) if date_serial else None
 
         if not date or not row['Cliente']:
             continue
 
-        # Extraer tipo y nombre del cliente
         client_parts = row['Cliente'].split(', ')
         tipo = 'BEN1_70' if 'BEN1_70' in client_parts[0] else 'BEN2_62' if 'BEN2_62' in client_parts[0] else client_parts[0]
         client_name = client_parts[1] if len(client_parts) > 1 else client_parts[0]
-        # Normalizar el nombre del cliente
-        normalized_client_name = client_name.strip().lower()
-        normalized_client_name = (normalized_client_name.replace('á', 'a').replace('é', 'e')
-                                 .replace('í', 'i').replace('ó', 'o').replace('ú', 'u'))
-        user_info = user_map.get(normalized_client_name, {
-            'name': client_name,
-            'cedula': 'Desconocido',
-            'position': 'No especificado',
-            'tipo': tipo
-        })
+        user_info = user_map.get(client_name, {'cedula': 'Desconocido', 'tipo': tipo})
 
         processed_data.append({
             'client': client_name,
-            'name': user_info['name'],  # Nombre vinculado desde users_data.csv
             'company': row['Empresa'] if pd.notna(row['Empresa']) else '',
             'date': date,
             'order': row['Orden'] if pd.notna(row['Orden']) else '',
@@ -109,7 +73,6 @@ def process_sales_data(sales_df, user_df):
             'product': row['Variante del producto'] if pd.notna(row['Variante del producto']) else '',
             'seller': row['Vendedor'] if pd.notna(row['Vendedor']) else '',
             'cedula': user_info['cedula'],
-            'position': user_info['position'],  # Incluir el puesto
             'tipo': user_info['tipo'],
             'cost_center': 'CostCenter_BEN1' if tipo == 'BEN1_70' else 'CostCenter_BEN2' if tipo == 'BEN2_62' else 'CostCenter_Other'
         })
@@ -120,6 +83,15 @@ def process_sales_data(sales_df, user_df):
     processed_df['key'] = processed_df['order'] + '-' + processed_df['client'] + '-' + processed_df['product']
     processed_df = processed_df.drop_duplicates(subset='key').drop(columns='key')
     return processed_df
+
+# Procesar datos de usuarios
+def process_user_data(user_df):
+    return user_df.rename(columns={
+        'Nombre': 'name',
+        'Cédula': 'cedula',
+        'Puesto': 'position',
+        'Tipo': 'tipo'
+    }).dropna(subset=['name'])
 
 # Aplicar subsidios
 def apply_subsidies(df):
@@ -317,7 +289,7 @@ def main():
                 ], columns=['Métrica', 'Valor'])
                 summary_data.to_excel(writer, sheet_name='Resumen', index=False)
                 if st.session_state.export_options['consumption_table']:
-                    export_df = filtered_data[['client', 'name', 'cedula', 'position', 'tipo', 'date', 'product', 'quantity', 'total', 'subsidy', 'employee_payment', 'cost_center']]
+                    export_df = filtered_data[['client', 'cedula', 'tipo', 'date', 'product', 'quantity', 'total', 'subsidy', 'employee_payment', 'cost_center']]
                     export_df.to_excel(writer, sheet_name='Consumo', index=False)
             buffer.seek(0)
             st.download_button(
@@ -329,7 +301,7 @@ def main():
 
     with col_btn[1]:
         if st.button("Exportar a CSV"):
-            export_df = filtered_data[['client', 'name', 'cedula', 'position', 'tipo', 'date', 'product', 'quantity', 'total', 'subsidy', 'employee_payment', 'cost_center']]
+            export_df = filtered_data[['client', 'cedula', 'tipo', 'date', 'product', 'quantity', 'total', 'subsidy', 'employee_payment', 'cost_center']]
             csv = export_df.to_csv(index=False)
             st.download_button(
                 label="Descargar CSV",
@@ -340,6 +312,8 @@ def main():
 
     with col_btn[2]:
         if st.button("Exportar a PDF"):
+            # Nota: Exportar a PDF en Streamlit requiere una configuración adicional (pdfkit y wkhtmltopdf)
+            # Por simplicidad, aquí se omite la implementación completa, pero se puede agregar usando pdfkit
             st.warning("La exportación a PDF requiere la instalación de pdfkit y wkhtmltopdf. Por favor, configura tu entorno para habilitar esta funcionalidad.")
 
     # Resumen
@@ -401,20 +375,10 @@ def main():
         paginated_data['employee_payment'] = paginated_data['employee_payment'].apply(format_number)
 
         # Agregar interacción para ordenar
-        sort_options = {
-            'Cliente': 'client',
-            'Nombre Vinculado': 'name',
-            'Cédula': 'cedula',
-            'Puesto': 'position',
-            'Tipo': 'tipo',
-            'Fecha': 'date',
-            'Producto': 'product',
-            'Cantidad': 'quantity',
-            'Total (₡)': 'total',
-            'Subsidio (₡)': 'subsidy',
-            'Pago Empleado (₡)': 'employee_payment',
-            'Centro de Costos': 'cost_center'
-        }
+        sort_options = {'Cliente': 'client', 'Cédula': 'cedula', 'Tipo': 'tipo', 'Fecha': 'date',
+                        'Producto': 'product', 'Cantidad': 'quantity', 'Total (₡)': 'total',
+                        'Subsidio (₡)': 'subsidy', 'Pago Empleado (₡)': 'employee_payment',
+                        'Centro de Costos': 'cost_center'}
         col_sort = st.columns(2)
         with col_sort[0]:
             sort_by = st.selectbox("Ordenar por", list(sort_options.keys()))
@@ -425,11 +389,8 @@ def main():
             if sort_by or direction:
                 st.rerun()
 
-        # Mostrar la tabla con los campos relevantes
-        st.dataframe(paginated_data[[
-            'client', 'name', 'cedula', 'position', 'tipo', 'date', 'product',
-            'quantity', 'total', 'subsidy', 'employee_payment', 'cost_center'
-        ]], use_container_width=True)
+        st.dataframe(paginated_data[['client', 'cedula', 'tipo', 'date', 'product', 'quantity', 'total', 'subsidy', 'employee_payment', 'cost_center']],
+                     use_container_width=True)
 
         col_pagination = st.columns(3)
         with col_pagination[0]:

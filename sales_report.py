@@ -92,6 +92,20 @@ def process_sales_data(sales_df, user_df):
             'tipo': tipo
         })
         
+        # Definir centros de costos
+        if user_info['tipo'] == 'BEN1_70':
+            cost_center = 'CostCenter_BEN1'
+        elif user_info['tipo'] == 'BEN2_62':
+            cost_center = 'CostCenter_BEN2'
+        elif user_info['tipo'] in ['AVNA VISITAS', 'Contratista/Visitante']:
+            cost_center = 'CostCenter_Visitante'
+        elif user_info['tipo'] in ['AVNA GB', 'AVNA ONBOARDING']:
+            cost_center = 'CostCenter_AVNA'
+        elif user_info['tipo'] == 'Practicante':
+            cost_center = 'CostCenter_Practicante'
+        else:
+            cost_center = 'CostCenter_Other'
+        
         return {
             'client': client_name,
             'name': user_info['name'],
@@ -106,9 +120,7 @@ def process_sales_data(sales_df, user_df):
             'cedula': user_info['cedula'],
             'position': user_info['position'],
             'tipo': user_info['tipo'],
-            'cost_center': ('CostCenter_BEN1' if tipo == 'BEN1_70' else
-                           'CostCenter_BEN2' if tipo == 'BEN2_62' else
-                           'CostCenter_Other')
+            'cost_center': cost_center
         }
     
     # Aplicar procesamiento a todas las filas
@@ -141,8 +153,8 @@ def apply_subsidies(df):
     df.loc[ben2_mask, 'employee_payment'] = 1300
     df.loc[ben2_mask, 'asoavna_contribution'] = 155
 
-    # Subsidios completos para tipos especiales
-    special_types = ['AVNA VISITAS', 'AVNA GB', 'AVNA ONBOARDING', 'Practicante']
+    # Subsidios completos para tipos especiales (AVNA asume el costo)
+    special_types = ['AVNA VISITAS', 'Contratista/Visitante', 'AVNA GB', 'AVNA ONBOARDING', 'Practicante']
     special_mask = df['tipo'].isin(special_types)
     df.loc[special_mask, 'subsidy'] = df.loc[special_mask, 'total']
     df.loc[special_mask, 'employee_payment'] = 0

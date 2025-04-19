@@ -1,169 +1,148 @@
-Actividades,Ciudad,Correo electrónico,Empresa,Nombre completo,País,Teléfono,Vendedor
-,Grecia,xlabssolucionesintegrales@gmail.com,Avna,ASEAVNA BEN1_70,Costa Rica,21017670,Administrator
-,Grecia,,Avna,"ASEAVNA BEN1_70, Aguilar Alvarado Bridget Stephanie",Costa Rica,,Administrator
-,Grecia,,Avna,"ASEAVNA BEN1_70, Aguirre Viales Karina",Costa Rica,,Administrator
-,Grecia,,Avna,"ASEAVNA BEN1_70, Alvarado Mendez Brandon",Costa Rica,,Administrator
-,Grecia,,Avna,"ASEAVNA BEN1_70, Arce Jimenez Steven",Costa Rica,,Administrator
-,Grecia,,Avna,"ASEAVNA BEN1_70, Barquero Luna Marianela",Costa Rica,,Administrator
-,Grecia,,Avna,"ASEAVNA BEN1_70, Barquero Monge Keylor Jose",Costa Rica,,Administrator
-,Grecia,,Avna,"ASEAVNA BEN1_70, Barrantes Campos Ana Miriam",Costa Rica,,Administrator
-,Grecia,,Avna,"ASEAVNA BEN1_70, Bravo Garcia Madeline",Costa Rica,,Administrator
-,Grecia,,Avna,"ASEAVNA BEN1_70, Brenes Calderon Keyner Johel",Costa Rica,,Administrator
-,Grecia,,Avna,"ASEAVNA BEN1_70, Calderon Alvarez Luis Gabriel",Costa Rica,,Administrator
-,Grecia,,Avna,"ASEAVNA BEN1_70, Calderon Bustos Seidy",Costa Rica,,Administrator
-,Grecia,,Avna,"ASEAVNA BEN1_70, Campos Venegas Jeanluc Francisco",Costa Rica,,Administrator
-,Grecia,,Avna,"ASEAVNA BEN1_70, Castro Mendoza Marco Israel",Costa Rica,,Administrator
-,Grecia,,Avna,"ASEAVNA BEN1_70, Castro Morales Kendall Andrey",Costa Rica,,Administrator
-,Grecia,,Avna,"ASEAVNA BEN1_70, Chavarria Rojas Isabel",Costa Rica,,Administrator
-,Grecia,,Avna,"ASEAVNA BEN1_70, Corella Alvarado Maria Nela",Costa Rica,,Administrator
-,Grecia,,Avna,"ASEAVNA BEN1_70, Coronado Valenciano Yoselin Paola",Costa Rica,,Administrator
-,Grecia,,Avna,"ASEAVNA BEN1_70, Corrales Gonzalez Estefania de los Angeles",Costa Rica,,Administrator
-,Grecia,,Avna,"ASEAVNA BEN1_70, Cortes Gutierrez Georgina",Costa Rica,,Administrator
-,Grecia,,Avna,"ASEAVNA BEN1_70, Cubero Quiros SirileyLania",Costa Rica,,Administrator
-,Grecia,,Avna,"ASEAVNA BEN1_70, Escoto Marlon",Costa Rica,,Administrator
-,Grecia,,Avna,"ASEAVNA BEN1_70, Flores Abarca Edgar Daniel",Costa Rica,,Administrator
-,Grecia,,Avna,"ASEAVNA BEN1_70, Flores Rios Juan",Costa Rica,,Administrator
-,Grecia,,Avna,"ASEAVNA BEN1_70, Galvez Garcia Melany",Costa Rica,,Administrator
-,Grecia,,Avna,"ASEAVNA BEN1_70, Gomez Brenes Katherine",Costa Rica,,Administrator
-,Grecia,,Avna,"ASEAVNA BEN1_70, Gonzalez Acuna Mario",Costa Rica,,Administrator
-,Grecia,,Avna,"ASEAVNA BEN1_70, Gonzalez Teran Ethel Yesenia",Costa Rica,,Administrator
-,Grecia,,Avna,"ASEAVNA BEN1_70, Gutierrez Guerrero Matthew David",Costa Rica,,Administrator
-,Grecia,,Avna,"ASEAVNA BEN1_70, Hernandez Sevilla Jesus",Costa Rica,,Administrator
-,Grecia,,Avna,"ASEAVNA BEN1_70, Herrera Arce Daniela",Costa Rica,,Administrator
-,Grecia,,Avna,"ASEAVNA BEN1_70, Hidalgo Melendez Steven",Costa Rica,,Administrator
-,Grecia,,Avna,"ASEAVNA BEN1_70, Jimenez Araya Yurguen Andres",Costa Rica,,Administrator
-,Grecia,,Avna,"ASEAVNA BEN1_70, Jimenez Delgado Maria Jose",Costa Rica,,Administrator
-,Grecia,,Avna,"ASEAVNA BEN1_70, Jimenez Gonzalez Yorlieth",Costa Rica,,Administrator
-,Grecia,,Avna,"ASEAVNA BEN1_70, Lizano Salas Daniel",Costa Rica,,Administrator
-,Grecia,,Avna,"ASEAVNA BEN1_70, Lobo Cespedes Marilyn Patricia",Costa Rica,,Administrator
-,Grecia,,Avna,"ASEAVNA BEN1_70, Lopez Flores Angel Guillermo",Costa Rica,,Administrator
-,Grecia,,Avna,"ASEAVNA BEN1_70, Maradiaga Gonzalez Abigail",Costa Rica,,Administrator
-,Grecia,,Avna,"ASEAVNA BEN1_70, Masis Solano Joel",Costa Rica,,Administrator
-,Grecia,,Avna,"ASEAVNA BEN1_70, Medina Vargas Jay",Costa Rica,,Administrator
-,Grecia,,Avna,"ASEAVNA BEN1_70, Monge Lacayo Johanna",Costa Rica,,Administrator
-,Grecia,,Avna,"ASEAVNA BEN1_70, Monge Montero Marlon",Costa Rica,,Administrator
-,Grecia,,Avna,"ASEAVNA BEN1_70, Morales Mendez William",Costa Rica,,Administrator
-,Grecia,,Avna,"ASEAVNA BEN1_70, Orozco Estrada Kimberly",Costa Rica,,Administrator
-,Grecia,,Avna,"ASEAVNA BEN1_70, Ortiz Cuadra Nazachill Johanna",Costa Rica,,Administrator
-,Grecia,,Avna,"ASEAVNA BEN1_70, Oviedo Romero Carlos",Costa Rica,,Administrator
-,Grecia,,Avna,"ASEAVNA BEN1_70, Palma Castro Naomy Tamara",Costa Rica,,Administrator
-,Grecia,,Avna,"ASEAVNA BEN1_70, Perez Espinoza Kendall",Costa Rica,,Administrator
-,Grecia,,Avna,"ASEAVNA BEN1_70, Perez Solano Andres",Costa Rica,,Administrator
-,Grecia,,Avna,"ASEAVNA BEN1_70, Porras Chavarria Roxana",Costa Rica,,Administrator
-,Grecia,,Avna,"ASEAVNA BEN1_70, Quesada Zamora Ronald Mauricio",Costa Rica,,Administrator
-,Grecia,,Avna,"ASEAVNA BEN1_70, Quiros Cordero Nicole Valeria",Costa Rica,,Administrator
-,Grecia,,Avna,"ASEAVNA BEN1_70, Reyes Valle Junielka",Costa Rica,,Administrator
-,Grecia,,Avna,"ASEAVNA BEN1_70, Rodriguez Herrera Ignacio Joel",Costa Rica,,Administrator
-,Grecia,,Avna,"ASEAVNA BEN1_70, Rojas Darcia Carolina",Costa Rica,,Administrator
-,Grecia,,Avna,"ASEAVNA BEN1_70, Rosabal Mora Daniel",Costa Rica,,Administrator
-,Grecia,,Avna,"ASEAVNA BEN1_70, Salas Garita Karina",Costa Rica,,Administrator
-,Grecia,,Avna,"ASEAVNA BEN1_70, Sanabria Valverde Isaac Josue",Costa Rica,,Administrator
-,Grecia,,Avna,"ASEAVNA BEN1_70, Sanchez Gonzalez Treicy",Costa Rica,,Administrator
-,Grecia,,Avna,"ASEAVNA BEN1_70, Sancho Najera Josue",Costa Rica,,Administrator
-,Grecia,,Avna,"ASEAVNA BEN1_70, Sibaja Soto Luis Angel",Costa Rica,,Administrator
-,Grecia,,Avna,"ASEAVNA BEN1_70, Solis Vargas Arelis",Costa Rica,,Administrator
-,Grecia,,Avna,"ASEAVNA BEN1_70, Somarriba  Guardado Katherine",Costa Rica,,Administrator
-,Grecia,,Avna,"ASEAVNA BEN1_70, Tinoco Meneses Mariluz",Costa Rica,,Administrator
-,Grecia,,Avna,"ASEAVNA BEN1_70, Umaña Traña Roxana",Costa Rica,,Administrator
-,Grecia,,Avna,"ASEAVNA BEN1_70, Vargas Mendez Maria Jose",Costa Rica,,Administrator
-,Grecia,,Avna,"ASEAVNA BEN1_70, Vega Arrieta Jose Ignacio",Costa Rica,,Administrator
-,Grecia,,Avna,"ASEAVNA BEN1_70, Vega Madrigal Bryan",Costa Rica,,Administrator
-,Grecia,,Avna,"ASEAVNA BEN1_70, Vega Molina Luis Miguel",Costa Rica,,Administrator
-,Grecia,,Avna,"ASEAVNA BEN1_70, Vega Trejos Miguel",Costa Rica,,Administrator
-,Grecia,,Avna,"ASEAVNA BEN1_70, Warehouse Assistant",Costa Rica,,Administrator
-,Grecia,,Avna,"ASEAVNA BEN1_70, Zuñiga Herrera Mayra Alejandra",Costa Rica,,Administrator
-,Grecia,,Avna,"ASEAVNA BEN1_70, Zuñiga Vasquez Genesis",Costa Rica,,Administrator
-,Grecia,,Avna,ASEAVNA BEN2_62,Costa Rica,,Administrator
-,Grecia,,Avna,"ASEAVNA BEN2_62, Acuña Quesada Jeiko Andre",Costa Rica,,Administrator
-,Grecia,,Avna,"ASEAVNA BEN2_62, Alfaro Quiros Johanna",Costa Rica,,Administrator
-,Grecia,,Avna,"ASEAVNA BEN2_62, Alpizar Arroyo Sebastian",Costa Rica,,Administrator
-,Grecia,,Avna,"ASEAVNA BEN2_62, Arauz Valverde Gissela",Costa Rica,,Administrator
-,Grecia,,Avna,"ASEAVNA BEN2_62, Araya Soto Marcela",Costa Rica,,Administrator
-,Grecia,,Avna,"ASEAVNA BEN2_62, Araya Zuñiga Arturo",Costa Rica,,Administrator
-,Grecia,,Avna,"ASEAVNA BEN2_62, Arguedas Sibaja Andrey",Costa Rica,,Administrator
-,Grecia,,Avna,"ASEAVNA BEN2_62, Bartley Palma Deikel Stefannia",Costa Rica,,Administrator
-,Grecia,,Avna,"ASEAVNA BEN2_62, Bermudez Rivera Josue",Costa Rica,,Administrator
-,Grecia,,Avna,"ASEAVNA BEN2_62, Bustos Miranda Maribel",Costa Rica,,Administrator
-,Grecia,,Avna,"ASEAVNA BEN2_62, Calderon Mata Silvia",Costa Rica,,Administrator
-,Grecia,,Avna,"ASEAVNA BEN2_62, Calderon Ocampo Daniela",Costa Rica,,Administrator
-,Grecia,,Avna,"ASEAVNA BEN2_62, Calvo Mena Yorlet",Costa Rica,,Administrator
-,Grecia,,Avna,"ASEAVNA BEN2_62, Camareno Wheelock Maria Jose",Costa Rica,,Administrator
-,Grecia,,Avna,"ASEAVNA BEN2_62, Campos Perez Vayoleth",Costa Rica,,Administrator
-,Grecia,,Avna,"ASEAVNA BEN2_62, Carballo Jinesta Esteban",Costa Rica,,Administrator
-,Grecia,,Avna,"ASEAVNA BEN2_62, Chaverri Salas Gerson",Costa Rica,,Administrator
-,Grecia,,Avna,"ASEAVNA BEN2_62, Chaves Solis Mario Jr",Costa Rica,,Administrator
-,Grecia,,Avna,"ASEAVNA BEN2_62, Chaves Vargas Jonathan",Costa Rica,,Administrator
-,Grecia,,Avna,"ASEAVNA BEN2_62, Cisneros Mata Andy",Costa Rica,,Administrator
-,Grecia,,Avna,"ASEAVNA BEN2_62, Diaz Cortez Jairo",Costa Rica,,Administrator
-,Grecia,,Avna,"ASEAVNA BEN2_62, Espinoza Barrantes Diana Carolina",Costa Rica,,Administrator
-,Grecia,,Avna,"ASEAVNA BEN2_62, Espinoza Sanchez Esteban",Costa Rica,,Administrator
-,Grecia,,Avna,"ASEAVNA BEN2_62, Fernandez Campos Andres",Costa Rica,,Administrator
-,Grecia,,Avna,"ASEAVNA BEN2_62, Godinez Carrillo Ramses Octavio",Costa Rica,,Administrator
-,Grecia,,Avna,"ASEAVNA BEN2_62, Godinez Lopez Juan Manuel",Costa Rica,,Administrator
-,Grecia,,Avna,"ASEAVNA BEN2_62, Gonzalez Araya Daniela",Costa Rica,,Administrator
-,Grecia,,Avna,"ASEAVNA BEN2_62, Guevara Cespedes Celeste",Costa Rica,,Administrator
-,Grecia,,Avna,"ASEAVNA BEN2_62, Hernandez Castro Carlos",Costa Rica,,Administrator
-,Grecia,,Avna,"ASEAVNA BEN2_62, Hinrichs Naranjo Johanny",Costa Rica,,Administrator
-,Grecia,,Avna,"ASEAVNA BEN2_62, Jara Coto Marco",Costa Rica,,Administrator
-,Grecia,,Avna,"ASEAVNA BEN2_62, Jimenez Salmeron Ronny",Costa Rica,,Administrator
-,Grecia,,Avna,"ASEAVNA BEN2_62, Leiva Coto Roberto",Costa Rica,,Administrator
-,Grecia,,Avna,"ASEAVNA BEN2_62, Leon Gonzalez Douglas",Costa Rica,,Administrator
-,Grecia,,Avna,"ASEAVNA BEN2_62, Lopez Chavarria Estiven",Costa Rica,,Administrator
-,Grecia,,Avna,"ASEAVNA BEN2_62, Madrigal Vargas Ingrid Maria",Costa Rica,,Administrator
-,Grecia,,Avna,"ASEAVNA BEN2_62, Madrigal Vargas Susan",Costa Rica,,Administrator
-,Grecia,,Avna,"ASEAVNA BEN2_62, Martinez Miranda Emanuel David",Costa Rica,,Administrator
-,Grecia,,Avna,"ASEAVNA BEN2_62, Mendez Sanchez Jordanny",Costa Rica,,Administrator
-,Grecia,,Avna,"ASEAVNA BEN2_62, Molina Venegas Ivan Esteban",Costa Rica,,Administrator
-,Grecia,,Avna,"ASEAVNA BEN2_62, Montero Rodriguez Adriana",Costa Rica,,Administrator
-,Grecia,,Avna,"ASEAVNA BEN2_62, Moraga Gonzalez Marco",Costa Rica,,Administrator
-,Grecia,,Avna,"ASEAVNA BEN2_62, Murillo Garcia Abraham Francisco",Costa Rica,,Administrator
-,Grecia,,Avna,"ASEAVNA BEN2_62, Murillo Sandi Kevin",Costa Rica,,Administrator
-,Grecia,,Avna,"ASEAVNA BEN2_62, Navarrete Carrillo Moises",Costa Rica,,Administrator
-,Grecia,,Avna,"ASEAVNA BEN2_62, Oses Duran Roger",Costa Rica,,Administrator
-,Grecia,,Avna,"ASEAVNA BEN2_62, Picado Rodriguez Jorge Isaac",Costa Rica,,Administrator
-,Grecia,,Avna,"ASEAVNA BEN2_62, Prendas Rojas Juan Pablo",Costa Rica,,Administrator
-,Grecia,,Avna,"ASEAVNA BEN2_62, Quesada Cabrera Maria Fernanda",Costa Rica,,Administrator
-,Grecia,,Avna,"ASEAVNA BEN2_62, Rodriguez Alfaro Luis Gustavo",Costa Rica,,Administrator
-,Grecia,,Avna,"ASEAVNA BEN2_62, Rodriguez Vargas Diego Armando",Costa Rica,,Administrator
-,Grecia,,Avna,"ASEAVNA BEN2_62, Rojas Villalobos Alejandra",Costa Rica,,Administrator
-,Grecia,,Avna,"ASEAVNA BEN2_62, Roman Centeno Bairon",Costa Rica,,Administrator
-,Grecia,,Avna,"ASEAVNA BEN2_62, Salas Salas Luis",Costa Rica,,Administrator
-,Grecia,,Avna,"ASEAVNA BEN2_62, Salazar Alvarado Estefani",Costa Rica,,Administrator
-,Grecia,,Avna,"ASEAVNA BEN2_62, Salazar Mora Sergio Jhonattan",Costa Rica,,Administrator
-,Grecia,,Avna,"ASEAVNA BEN2_62, Silva Villalobos Pablo",Costa Rica,,Administrator
-,Grecia,,Avna,"ASEAVNA BEN2_62, Solis Jimenez Ana",Costa Rica,,Administrator
-,Grecia,,Avna,"ASEAVNA BEN2_62, Soto Guevara Cristopher",Costa Rica,,Administrator
-,Grecia,,Avna,"ASEAVNA BEN2_62, Ulate Bolaños Jose",Costa Rica,,Administrator
-,Grecia,,Avna,"ASEAVNA BEN2_62, Vargas Ulate Magaly",Costa Rica,,Administrator
-,Grecia,mvega@avna.com,Avna,"ASEAVNA BEN2_62, Vega Rojas Mariana",Costa Rica,,Administrator
-,Grecia,,Avna,"ASEAVNA BEN2_62, Zamora Villalobos Andrey Eduardo",Costa Rica,,Administrator
-,Grecia,,Avna,"ASEAVNA BEN2_62, Zeledon Garcia Lesther",Costa Rica,,Administrator
-,Grecia,,Avna,"ASEAVNA BEN2_62, de los Reyes Matarrita Delan Johel",Costa Rica,,Administrator
-,Grecia,,Avna,AVNA GB,,,
-,Grecia,,Avna,AVNA ONBOARDING,,,
-,Grecia,,Avna,AVNA VISITAS,,,
-,Grecia,,,Base de datos de prueba,Costa Rica,,Administrator
-,Grecia,vargaslei33@gmail.com,Wilfredos,Leidy Vargas Vargas,Costa Rica,,Administrator
-,,,,,,,
-,,,,,,,
-,,,,,,,
-,,,,,,,
-,,,,,,,
-,,,,,,,
-,,,,,,,
-,,,,,,,
-,,,,,,,
-,,,,,,,
-,,,,,,,
-,,,,,,,
-,,,,,,,
-,,,,,,,
-,,,,,,,
-,,,,,,,
-,,,,,,,
-,,,,,,,
-,,,,,,,
-,,,,,,,
-,,,,,,,
-,,,,,,,
-,,,,,,,
+Cód,Nombre,Cédula,CRC,Puesto,Tipo
+123456789,AVNA GB,123456789,CRC,AVNA GB,AVNA GB
+987654321,AVNA ONBOARDING,987654321,CRC,AVNA ONBOARDING,AVNA ONBOARDING
+3102634242,AVNA VISITAS,3102634242,CRC,AVNA VISITAS,AVNA VISITAS
+0516355,Zuñiga Herrera Mayra Alejandra,206270364,CRC,Operator I,BEN1_70
+0627368,Gutierrez Guerrero Matthew David,115600711,CRC,Operator I,BEN1_70
+0228406,Barquero Luna Marianela,207580286,CRC,Operator I,BEN1_70
+0228408,Gonzalez Teran Ethel Yesenia,602080041,CRC,Operator I,BEN1_70
+0620445,Aguilar Alvarado Bridget Stephanie,207170841,CRC,Operator I,BEN1_70
+221476,Arce Jimenez Steven,207210978,CRC,Operator I,BEN1_70
+711376294,Sanchez Gonzalez Treicy,208740451,CRC,Operator I,BEN1_70
+711376312,Rosabal Mora Daniel,208640929,CRC,Operator I,BEN1_70
+711376313,Sancho Najera Josue,208170871,CRC,Operator I,BEN1_70
+711376315,Corella Alvarado Maria Nela,204710127,CRC,Operator I,BEN1_70
+711376317,Lizano Salas Daniel,208430893,CRC,Operator I,BEN1_70
+711376335,Jimenez Araya Yurguen Andres,208330637,CRC,Operator I,BEN1_70
+711376336,Coronado Valenciano Yoselin Paola,207590869,CRC,Operator I,BEN1_70
+711376337,Oviedo Romero Carlos,207550735,CRC,Operator I,BEN1_70
+711376339,Flores Rios Juan,118900109,CRC,Operator I,BEN1_70
+711376343,Gomez Brenes Katherine,207240691,CRC,Operator I,BEN1_70
+711376349,Monge Montero Marlon,504190811,CRC,Operator I,BEN1_70
+711376362,Orozco Estrada Kimberly,117580260,CRC,Operator I,BEN1_70
+711376363,Aguirre Viales Karina,207400149,CRC,Operator I,BEN1_70
+711376374,Herrera Arce Daniela,402050866,CRC,Operator I,BEN1_70
+711376379,Vega Madrigal Bryan,118580410,CRC,Operator I,BEN1_70
+711376383,Monge Lacayo Johanna,206310536,CRC,Operator I,BEN1_70
+711376384,Cortes Gutierrez Georgina,118100111,CRC,Operator I,BEN1_70
+711376404,Hernandez Sevilla Jesus,208300437,CRC,Operator I,BEN1_70
+711376426,Zuñiga Vasquez Genesis,208800400,CRC,Operator I,BEN1_70
+711376429,Cubero Quiros SirileyLania,206920819,CRC,Operator I,BEN1_70
+711376430,Bravo Garcia Madeline,155848419600,CRC,Operator I,BEN1_70
+711376434,Somarriba  Guardado Katherine,116710378,CRC,Operator I,BEN1_70
+711376435,Jimenez Gonzalez Yorlieth,207860946,CRC,Operator I,BEN1_70
+711376444,Vega Trejos Miguel,208660127,CRC,Operator I,BEN1_70
+711376451,Salas Garita Karina,208030567,CRC,Operator I,BEN1_70
+711376461,Galvez Garcia Melany,207600584,CRC,Operator I,BEN1_70
+711376472,Vargas Mendez Maria Jose,155841171619,CRC,Operator I,BEN1_70
+711376473,Medina Vargas Jay,208810760,CRC,Operator I,BEN1_70
+711376477,Escoto Marlon,155854103927,CRC,Operator I,BEN1_70
+711376482,Morales Mendez William,207900081,CRC,Operator I,BEN1_70
+711376485,Solis Vargas Arelis,205750776,CRC,Operator I,BEN1_70
+711376486,Vega Arrieta Jose Ignacio,207090495,CRC,Operator I,BEN1_70
+711376489,Vega Molina Luis Miguel,207600815,CRC,Operator I,BEN1_70
+711376493,Jimenez Delgado Maria Jose,116030963,CRC,Operator I,BEN1_70
+711376495,Calderon Bustos Seidy,605160686,CRC,Operator I,BEN1_70
+711376498,Reyes Valle Junielka,505020599,CRC,Operator I,BEN1_70
+711376500,Perez Espinoza Kendall,208760599,CRC,Operator I,BEN1_70
+711376502,Hidalgo Melendez Steven,208640529,CRC,Operator I,BEN1_70
+711376506,Castro Mendoza Marco Israel,208810074,CRC,Operator I,BEN1_70
+711376509,Alvarado Mendez Brandon,207980230,CRC,Operator I,BEN1_70
+711376514,Perez Solano Andres,207740130,CRC,Operator I,BEN1_70
+711376521,Maradiaga Gonzalez Abigail,155837550001,CRC,Operator I,BEN1_70
+429175,Porras Chavarria Roxana,205410245,CRC,Operator II,BEN1_70
+524176,Tinoco Meneses Mariluz,801500600,CRC,Operator II,BEN1_70
+524180,Chavarria Rojas Isabel,205590211,CRC,Operator II,BEN1_70
+1018208,Masis Solano Joel,208000785,CRC,Operator II,BEN1_70
+524296,Palma Castro Naomy Tamara,208400756,CRC,Operator II,BEN1_70
+0816322,Flores Abarca Edgar Daniel,205710306,CRC,Operator II,BEN1_70
+112355,Umaña Traña Roxana,205530567,CRC,Operator II,BEN1_70
+0418344,Sibaja Soto Luis Angel,207120915,CRC,Operator II,BEN1_70
+0502348,Campos Venegas Jeanluc Francisco,119010485,CRC,Operator II,BEN1_70
+0627369,Rodriguez Herrera Ignacio Joel,115980805,CRC,Operator II,BEN1_70
+0110389,Lopez Flores Angel Guillermo,208560104,CRC,Operator II,BEN1_70
+0411417,Barquero Monge Keylor Jose,208490559,CRC,Operator II,BEN1_70
+0523435,Castro Morales Kendall Andrey,118910590,CRC,Operator II,BEN1_70
+0606441,Barrantes Campos Ana Miriam,119120274,CRC,Operator II,BEN1_70
+0620447,Lobo Cespedes Marilyn Patricia,115010967,CRC,Operator II,BEN1_70
+0711460,Ortiz Cuadra Nazachill Johanna,119310562,CRC,Operator II,BEN1_70
+711376291,Sanabria Valverde Isaac Josue,207750931,CRC,Operator II,BEN1_70
+421246,Rojas Darcia Carolina,207660946,CRC,Quality Inspector I,BEN1_70
+224273,Quesada Zamora Ronald Mauricio,208050648,CRC,Quality Inspector I,BEN1_70
+0110350,Brenes Calderon Keyner Johel,207260811,CRC,Quality Inspector I,BEN1_70
+0207361,Quiros Cordero Nicole Valeria,118090461,CRC,Quality Inspector I,BEN1_70
+0425428,Corrales Gonzalez Estefania de los Angeles,208220659,CRC,Quality Inspector I,BEN1_70
+0623306,Calderon Alvarez Luis Gabriel,702610962,CRC,Warehouse Assistant,BEN1_70
+711376511,Gonzalez Acuna Mario,110760752,CRC,Warehouse Assistant,BEN1_70
+711376523,Fonseca Cordoba Any,207500127,CRC,Warehouse Assistant,BEN1_70
+711376456,Alfaro Quiros Johanna,207150054,CRC,Accountant Supervisor,BEN2_62
+711376332,Fernandez Campos Andres,206530799,CRC,IT Support Technician,BEN2_62
+212268,Bermudez Rivera Josue,208350354,CRC,Laser Technician,BEN2_62
+0822382,Alpizar Arroyo Sebastian,207710637,CRC,Laser Technician,BEN2_62
+711376474,Chaves Vargas Jonathan,111730332,CRC,Laser Technician,BEN2_62
+31547,Rodriguez Alfaro Luis Gustavo,203840818,CRC,Maintenance Assistant,BEN2_62
+1018339,Hinrichs Naranjo Johanny,108360124,USD,Molding Manager,BEN2_62
+0322280,Leiva Coto Roberto,302630892,CRC,Molding Technician,BEN2_62
+0228409,Prendas Rojas Juan Pablo,112100837,CRC,Molding Technician,BEN2_62
+711376470,Oses Duran Roger,602280433,CRC,Molding Technician,BEN2_62
+081328,Salas Salas Luis,112650427,USD,PMO & Facilities Manager,BEN2_62
+711376528,Roman Centeno Bairon,118200707,CRC,Production Supervisor I,BEN2_62
+0314414,Molina Venegas Ivan Esteban,604160182,CRC,Production Supervisor II,BEN2_62
+502349,Godinez Carrillo Ramses Octavio,116310645,CRC,Toolmaker I,BEN2_62
+051580,Madrigal Vargas Susan,207130037,CRC,Accountant,BEN2_62
+0425424,Bartley Palma Deikel Stefannia,701380465,CRC,Administrative Assistant,BEN2_62
+011202,Chaves Solis Mario Jr,114480054,USD,Automation & Engineering Manager,BEN2_62
+0711378,Rodriguez Vargas Diego Armando,114050495,CRC,Automation Engineer,BEN2_62
+0411422,Silva Villalobos Pablo,118470115,CRC,Automation Technician,BEN2_62
+031204,Zeledon Garcia Lesther,112170401,USD,Business Development Manager,BEN2_62
+0314332,de los Reyes Matarrita Delan Johel,118080033,CRC,Buyer Assistant,BEN2_62
+711376399,Campos Perez Vayoleth,206960322,CRC,Buyer III,BEN2_62
+524298,Murillo Sandi Kevin,114210165,CRC,CNC Technician Supervisor,BEN2_62
+318167,Montero Rodriguez Adriana,206190284,CRC,EHS Engineer,BEN2_62
+422171,Jimenez Salmeron Ronny,305090805,CRC,Electro Mechanical Technician - A&E,BEN2_62
+422172,Lopez Chavarria Estiven,207280388,CRC,Electro Mechanical Technician - A&E,BEN2_62
+711376396,Calderon Mata Silvia,106690126,USD,Finances Manager,BEN2_62
+031205,Espinoza Sanchez Esteban,401590065,CRC,Laser Specialist,BEN2_62
+1009101,Salazar Alvarado Estefani,206640166,CRC,Lead Operator (OPL),BEN2_62
+209112,Quesada Cabrera Maria Fernanda,206700961,CRC,Lead Operator (OPL),BEN2_62
+0322339,Soto Guevara Cristopher,206470558,CRC,Lead Operator (OPL),BEN2_62
+0711373,Salazar Mora Sergio Jhonattan,114660560,CRC,Lead Operator (OPL),BEN2_62
+711376388,Calvo Mena Yorlet,113110366,CRC,Lead Operator (OPL),BEN2_62
+917193,Araya Soto Marcela,206350290,CRC,Logistics Representative,BEN2_62
+524177,Araya Zuñiga Arturo,107660378,CRC,Maintenance and Facilities Engineer,BEN2_62
+0801385,Arauz Valverde Gissela,207240167,CRC,Manufacturing Engineer III,BEN2_62
+091666,Navarrete Carrillo Moises,114180427,USD,Manufacturing Manager,BEN2_62
+071325,Ulate Bolaños Jose,206420552,CRC,NPD CNC Technician,BEN2_62
+0925471,Gonzalez Araya Daniela,207370319,CRC,People & Excellence Business Partner,BEN2_62
+111669,Vega Rojas Mariana,207150403,USD,People & Excellence Manager,BEN2_62
+711376391,Espinoza Barrantes Diana Carolina,206410232,CRC,People & Excellence Specialist,BEN2_62
+031678,Vargas Ulate Magaly,112250658,CRC,Planner III,BEN2_62
+0726384,Murillo Garcia Abraham Francisco,402380239,CRC,Process Engineer I,BEN2_62
+711376513,Moraga Gonzalez Marco,207570719,CRC,Process Engineer I,BEN2_62
+013072,Guevara Cespedes Celeste,117150908,CRC,Process Engineering Technician,BEN2_62
+606152,Cisneros Mata Andy,113930522,CRC,Production Technician I,BEN2_62
+0530360,Camareno Wheelock Maria Jose,604100668,CRC,Production Technician I,BEN2_62
+1210386,Martinez Miranda Emanuel David,119140184,CRC,Production Technician I,BEN2_62
+021677,Jara Coto Marco,112820159,CRC,Production Technician II,BEN2_62
+081655,Carballo Jinesta Esteban,207600740,CRC,Production Technician II,BEN2_62
+0228404,Acuña Quesada Jeiko Andre,207400642,CRC,Production Technician II,BEN2_62
+711376364,Arguedas Sibaja Andrey,117610276,CRC,Production Technician II,BEN2_62
+711376394,Zamora Villalobos Andrey Eduardo,117260750,CRC,Production Technician II,BEN2_62
+011317,Chaverri Salas Gerson,205430433,CRC,Production Technician III,BEN2_62
+0314333,Leon Gonzalez Douglas,186202405901,CRC,Project Engineer,BEN2_62
+825255,Picado Rodriguez Jorge Isaac,117580503,CRC,Quality Engineer I,BEN2_62
+0405282,Rojas Villalobos Alejandra,208260877,CRC,Quality Engineer I,BEN2_62
+051640,Solis Jimenez Ana,114380727,CRC,Quality Engineer III - Quality System Specialist,BEN2_62
+0712311,Diaz Cortez Jairo,503080156,USD,Quality Manager,BEN2_62
+1119353,Hernandez Castro Carlos,207700295,CRC,Quality Technician,BEN2_62
+0803318,Mendez Sanchez Jordanny,503840121,CRC,Quality Technician Supervisor,BEN2_62
+2181665,Bustos Miranda Maribel,207530147,CRC,Subject matter expert Operator (OP SME),BEN2_62
+610183,Calderon Ocampo Daniela,206680761,USD,Supply Chain Manager,BEN2_62
+0207358,Godinez Lopez Juan Manuel,503590395,CRC,Tool Room Supervisor,BEN2_62
+917196,Madrigal Vargas Ingrid Maria,206780446,CRC,Training Coordinator,BEN2_62
+081101,Chaves Alvarado Mario,108620240,USD,Vice President – Costa Rica Operations,Practicante
+0212472,Jimenez Cambronero Bryan,207910332,CRC,Intern- Project Management,Practicante
+711376419,Mendez Viquez Noelia,208110222,CRC,Intern People & Excellence & Quality Assistant,Practicante
+711376479,Mendez Zuniga Lian,118970178,CRC,Intern People & Excellence Assistant,Practicante
+711376480,Barrantes Alfaro Angie,207470777,CRC,Intern Warehouse Supervisor,Practicante
+711376525,Vargas Flores Emmanuel,207220168,CRC,Intern IT Support Technician,Practicante

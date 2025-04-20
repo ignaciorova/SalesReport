@@ -187,11 +187,6 @@ class ReporteVentas:
         return contactos
 
     def _procesar_ventas(self, sales_df):
-        required_columns = ['Cliente', 'Empresa', 'Fecha de la orden', 'Orden', 'Cant. ordenada', 'Precio unitario', 'Total', 'Variante del producto', 'Vendedor']
-        missing_columns = [col for col in required_columns if col not in sales_df.columns]
-        if missing_columns:
-            raise ValueError(f"Columnas faltantes en sales_data.csv: {', '.join(missing_columns)}")
-
         ventas = []
         for _, row in sales_df.iterrows():
             cliente = row['Cliente']
@@ -457,9 +452,18 @@ def main():
                     st.error("Usuario o contraseña incorrectos")
         else:
             st.success("Ya has iniciado sesión.")
-            if st.button("Cerrar Sesión"):
-                st.session_state.logged_in = False
-                st.rerun()
+            col_logout, col_clear = st.columns(2)
+            with col_logout:
+                if st.button("Cerrar Sesión"):
+                    st.session_state.logged_in = False
+                    st.rerun()
+            with col_clear:
+                if st.button("Limpiar Estado de Sesión"):
+                    for key in list(st.session_state.keys()):
+                        del st.session_state[key]
+                    st.session_state.logged_in = True
+                    st.success("Estado de sesión limpiado. Por favor, recarga la página.")
+                    st.rerun()
 
     if not st.session_state.logged_in:
         return
@@ -495,6 +499,14 @@ def main():
 
     reporte = st.session_state.reporte
     sales_data = reporte.datos
+
+    # Validar que sales_data tenga las columnas esperadas
+    expected_columns = ['client', 'display_name', 'name', 'company', 'date', 'order', 'quantity', 'unit_price', 'total', 'base_price', 'product', 'seller', 'cedula', 'position', 'tipo', 'cost_center', 'is_subsidized', 'subsidy', 'employee_payment', 'employee_payment_base', 'asoavna_commission', 'iva', 'client_credit', 'aseavna_account']
+    missing_columns = [col for col in expected_columns if col not in sales_data.columns]
+    if missing_columns:
+        st.error(f"Error: Faltan las siguientes columnas en los datos procesados: {', '.join(missing_columns)}. Verifica el formato de 'sales_data.csv' y 'users_data.csv'.")
+        return
+
     etiquetas_fila = reporte.etiquetas_fila
     facturacion = reporte.facturacion
     comisiones_no_subsidiadas_df, total_commission_non_subsidized = reporte.comisiones_no_subsidiadas
@@ -515,10 +527,9 @@ def main():
         st.session_state.selected_client = 'All'
     if 'current_page' not in st.session_state:
         st.session_state.current_page = 1
-    if 'sort_key' not in st.session_state:
-        st.session_state.sort_key = 'display_name'
-    if 'sort_direction' not in st.session_state:
-        st.session_state.sort_direction = 'asc'
+    # Forzar la inicialización de sort_key y sort_direction
+    st.session_state.sort_key = 'display_name'  # Forzar a 'display_name'
+    st.session_state.sort_direction = 'asc'  # Forzar a 'asc'
     if 'export_options' not in st.session_state:
         st.session_state.export_options = {
             'revenue_chart': True,
@@ -557,26 +568,23 @@ def main():
     # Recalcular etiquetas_fila con datos filtrados
     filtered_etiquetas = reporte._generar_etiquetas_fila(filtered_data)
 
-    # Validar columnas esperadas
-    expected_columns = ['display_name', 'client', 'tipo', 'date', 'quantity', 'total', 'subsidy', 'employee_payment', 'asoavna_commission', 'iva', 'client_credit', 'aseavna_account', 'cost_center', 'product']
-    missing_columns = [col for col in expected_columns if col not in filtered_data.columns]
-    if missing_columns:
-        st.error(f"Error: Faltan las siguientes columnas en los datos filtrados: {missing_columns}")
-        return
+    # Depuración: Mostrar el valor de sort_key y las columnas de filtered_data
+    st.write(f"Debug - sort_key: {st.session_state.sort_key}")
+    st.write(f"Debug - filtered_data columns: {list(filtered_data.columns)}")
+    st.write(f"Debug - filtered_data shape: {filtered_data.shape}")
 
-    # Validar sort_key
+    # Validar que sort_key sea una columna válida en filtered_data
     if st.session_state.sort_key not in filtered_data.columns:
-        st.warning(f"Error: La columna '{st.session_state.sort_key}' no existe. Restableciendo a 'display_name'.")
-        st.session_state.sort_key = 'display_name'
+        st.error(f"Error: La columna '{st.session_state.sort_key}' no existe en filtered_data. Columnas disponibles: {list(filtered_data.columns)}. Revirtiendo a 'display_name'.")
+        st.session_state.sort_key = 'display_name'  # Revertir a una columna conocida
+        if 'display_name' not in filtered_data.columns:
+            st.error("Error crítico: La columna 'display_name' no está presente en filtered_data. Verifica los datos de entrada.")
+            return
 
-    # Ordenar datos
-    if filtered_data.empty:
-        st.warning("No hay datos para mostrar con los filtros actuales.")
-    else:
-        filtered_data = filtered_data.sort_values(
-            by=st.session_state.sort_key,
-            ascending=(st.session_state.sort_direction == 'asc')
-        )
+    filtered_data = filtered_data.sort_values(
+        by=st.session_state.sort_key,
+        ascending=(st.session_state.sort_direction == 'asc')
+    )
 
     aggregated = reporte.aggregate_data(filtered_data)
 
@@ -600,26 +608,6 @@ def main():
     ])
 
     cost_breakdown_data = aggregated['cost_breakdown_by_tipo']
-
-    # Calcular comisiones no subsidiadas para datos filtrados
-    filtered_comisiones_df = pd.DataFrame()
-    total_commission_non_subsidized_filtered = 0
-    comisiones = []
-    for _, row in filtered_data.iterrows():
-        if not row['is_subsidized']:
-            commission = row['asoavna_commission'] * row['quantity']
-            total_commission_non_subsidized_filtered += commission
-            comisiones.append({
-                'client': row['client'],
-                'display_name': row['display_name'],
-                'product': row['product'],
-                'total': row['total'] * row['quantity'],
-                'base_price': row['base_price'] * row['quantity'],
-                'asoavna_commission': commission,
-                'iva': row['iva'] * row['quantity']
-            })
-    if comisiones:
-        filtered_comisiones_df = pd.DataFrame(comisiones)
 
     # Filtros
     with tabs[1], tabs[2], tabs[3], tabs[4], tabs[5]:
@@ -708,7 +696,24 @@ def main():
         total_iva_filtered = facturacion_filtered['BEN1_70']['iva'] + facturacion_filtered['BEN2_62']['iva'] + facturacion_filtered['Otros']['iva']
         total_commission_subsidized_filtered = facturacion_filtered['BEN1_70']['commission'] + facturacion_filtered['BEN2_62']['commission'] + facturacion_filtered['Otros']['commission']
 
-        non_subsidized_iva = filtered_comisiones_df['iva'].sum()
+        # Calcular comisiones no subsidiadas para datos filtrados directamente
+        comisiones = []
+        total_commission_non_subsidized_filtered = 0
+        for _, row in filtered_data.iterrows():
+            if not row['is_subsidized']:
+                commission = row['asoavna_commission'] * row['quantity']
+                total_commission_non_subsidized_filtered += commission
+                comisiones.append({
+                    'client': row['client'],
+                    'display_name': row['display_name'],
+                    'product': row['product'],
+                    'total': row['total'] * row['quantity'],
+                    'base_price': row['base_price'] * row['quantity'],
+                    'asoavna_commission': commission,
+                    'iva': row['iva'] * row['quantity']
+                })
+        filtered_comisiones_df = pd.DataFrame(comisiones)
+        non_subsidized_iva = filtered_comisiones_df['iva'].sum() if not filtered_comisiones_df.empty else 0
 
         # Calcular totales
         total_ben1_filtered = facturacion_filtered['BEN1_70']['subsidy'] + facturacion_filtered['BEN1_70']['employee_payment']
@@ -743,7 +748,7 @@ def main():
 
         # Facturación adicional
         total_facturar_avna = total_subsidy_filtered
-        total_aseavna_recoleta = total_employee_payment_filtered + filtered_comisiones_df['total'].sum()
+        total_aseavna_recoleta = total_employee_payment_filtered + filtered_comisiones_df['total'].sum() if not filtered_comisiones_df.empty else total_employee_payment_filtered
         total_aseavna_5percent = total_commission_non_subsidized_filtered
         total_facturar_aseavna = total_aseavna_recoleta - total_aseavna_5percent
         total_aseavna_5percent_subsidized = total_commission_subsidized_filtered
@@ -859,8 +864,8 @@ def main():
     with tabs[5]:
         st.header("Comisiones de Productos No Subsidiados")
         st.write("Nota: La comisión para productos no subsidiados es del 5% por transacción.")
-        if not filtered_comisiones_df.empty:
-            comisiones_display = filtered_comisiones_df.copy()
+        if not filtered_comisiones.empty:
+            comisiones_display = filtered_comisiones.copy()
             comisiones_display['total'] = comisiones_display['total'].apply(format_number)
             comisiones_display['base_price'] = comisiones_display['base_price'].apply(format_number)
             comisiones_display['asoavna_commission'] = comisiones_display['asoavna_commission'].apply(format_number)
@@ -922,7 +927,7 @@ def main():
                             client_df.to_excel(writer, sheet_name=f'Cliente_{client[:20]}', index=False)
 
                     if st.session_state.export_options['non_subsidized_commissions']:
-                        comisiones_df = filtered_comisiones_df[['display_name', 'product', 'total', 'base_price', 'asoavna_commission', 'iva']]
+                        comisiones_df = filtered_comisiones[['display_name', 'product', 'total', 'base_price', 'asoavna_commission', 'iva']]
                         comisiones_df.to_excel(writer, sheet_name='Comisiones_No_Subsidiadas', index=False)
 
                 buffer.seek(0)

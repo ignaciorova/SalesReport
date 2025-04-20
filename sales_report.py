@@ -86,17 +86,24 @@ class Venta:
         self.asoavna_contribution = 0
 
     def aplicar_subsidios(self):
-        if self.tipo == 'BEN1_70' and self.producto == 'Almuerzo Ejecutivo Aseavna':
-            self.subsidy = 2100
-            self.employee_payment = 1000
-            self.asoavna_contribution = 155
-        elif self.tipo == 'BEN2_62' and self.producto == 'Almuerzo Ejecutivo Aseavna':
-            self.subsidy = 1800
-            self.employee_payment = 1300
-            self.asoavna_contribution = 155
-        elif self.tipo in ['AVNA VISITAS', 'Contratista/Visitante', 'AVNA GB', 'AVNA ONBOARDING', 'Practicante']:
-            self.subsidy = self.total
-            self.employee_payment = 0
+        # Solo aplicar subsidios si el producto es "Almuerzo Ejecutivo Aseavna"
+        if self.producto == 'Almuerzo Ejecutivo Aseavna':
+            if self.tipo == 'BEN1_70':
+                self.subsidy = 2100  # 67.74% de 3100
+                self.employee_payment = 1000
+                self.asoavna_contribution = 155  # 5% de 3100
+            elif self.tipo == 'BEN2_62':
+                self.subsidy = 1800  # 56.00% de 3100
+                self.employee_payment = 1300
+                self.asoavna_contribution = 155  # 5% de 3100
+            elif self.tipo in ['AVNA VISITAS', 'Contratista/Visitante', 'AVNA GB', 'AVNA ONBOARDING', 'Practicante']:
+                self.subsidy = self.total
+                self.employee_payment = 0
+                self.asoavna_contribution = 0
+        else:
+            # Para otros productos, el empleado paga el total y no hay subsidio ni contribución
+            self.subsidy = 0
+            self.employee_payment = self.total
             self.asoavna_contribution = 0
 
     def to_dict(self):
@@ -127,6 +134,7 @@ class ReporteVentas:
         self.ventas = self._procesar_ventas(sales_df)
         self._aplicar_subsidios()
         self.datos = self._crear_dataframe()
+        self.facturacion = self._calcular_facturacion()
 
     def _procesar_contactos(self, user_df):
         required_columns = ['Nombre', 'Cédula', 'Puesto', 'Tipo']
@@ -177,6 +185,41 @@ class ReporteVentas:
         df = df.drop_duplicates(subset='key').drop(columns='key')
         return df
 
+    def _calcular_facturacion(self):
+        df = self.datos
+        facturacion = {
+            'BEN1_70': {'avna': 0, 'aseavna': 0, 'count': 0},
+            'BEN2_62': {'avna': 0, 'aseavna': 0, 'count': 0},
+            'Otros': {'avna': 0, 'aseavna': 0, 'count': 0}
+        }
+
+        for _, row in df.iterrows():
+            if row['product'] != 'Almuerzo Ejecutivo Aseavna':
+                continue
+            if row['tipo'] == 'BEN1_70':
+                facturacion['BEN1_70']['avna'] += row['subsidy']
+                facturacion['BEN1_70']['aseavna'] += row['employee_payment']
+                facturacion['BEN1_70']['count'] += 1
+            elif row['tipo'] == 'BEN2_62':
+                facturacion['BEN2_62']['avna'] += row['subsidy']
+                facturacion['BEN2_62']['aseavna'] += row['employee_payment']
+                facturacion['BEN2_62']['count'] += 1
+            else:
+                facturacion['Otros']['avna'] += row['subsidy']
+                facturacion['Otros']['aseavna'] += row['employee_payment']
+                facturacion['Otros']['count'] += 1
+
+        total_transacciones_almuerzo = facturacion['BEN1_70']['count'] + facturacion['BEN2_62']['count']
+        aseavna_contribution = total_transacciones_almuerzo * 155  # 5% por transacción de Almuerzo Ejecutivo Aseavna
+        facturar_aseavna = (facturacion['BEN1_70']['aseavna'] + facturacion['BEN2_62']['aseavna'] +
+                            facturacion['Otros']['aseavna'] + aseavna_contribution)
+
+        return {
+            'facturacion': facturacion,
+            'aseavna_contribution': aseavna_contribution,
+            'facturar_aseavna': facturar_aseavna
+        }
+
     def aggregate_data(self):
         df = self.datos
         revenue_by_client = df.groupby('client')['total'].sum().to_dict()
@@ -225,6 +268,7 @@ def main():
     try:
         reporte = ReporteVentas(sales_df, user_df)
         sales_data = reporte.datos
+        facturacion = reporte.facturacion
     except Exception as e:
         st.error(f"Error al procesar los datos: {e}")
         return
@@ -252,7 +296,8 @@ def main():
             'sales_trend': True,
             'product_pie': True,
             'cost_breakdown': True,
-            'consumption_table': True
+            'consumption_table': True,
+            'facturacion_table': True
         }
 
     # Filtrar datos
@@ -336,7 +381,7 @@ def main():
 
     # Opciones de Exportación
     st.header("Opciones de Exportación")
-    col_export = st.columns(5)
+    col_export = st.columns(6)
     with col_export[0]:
         st.session_state.export_options['revenue_chart'] = st.checkbox("Gráfico de Ingresos por Cliente", value=st.session_state.export_options['revenue_chart'])
     with col_export[1]:
@@ -347,6 +392,8 @@ def main():
         st.session_state.export_options['cost_breakdown'] = st.checkbox("Gráfico de Desglose de Costos", value=st.session_state.export_options['cost_breakdown'])
     with col_export[4]:
         st.session_state.export_options['consumption_table'] = st.checkbox("Tabla de Consumo", value=st.session_state.export_options['consumption_table'])
+    with col_export[5]:
+        st.session_state.export_options['facturacion_table'] = st.checkbox("Tabla de Facturación", value=st.session_state.export_options['facturacion_table'])
 
     col_btn = st.columns(3)
     with col_btn[0]:
@@ -368,6 +415,18 @@ def main():
                 if st.session_state.export_options['consumption_table']:
                     export_df = filtered_data[['client', 'name', 'cedula', 'position', 'tipo', 'date', 'product', 'quantity', 'total', 'subsidy', 'employee_payment', 'cost_center']]
                     export_df.to_excel(writer, sheet_name='Consumo', index=False)
+                if st.session_state.export_options['facturacion_table']:
+                    facturacion_data = pd.DataFrame([
+                        ['Facturar a AVNA (BEN1_70)', f"₡{format_number(facturacion['facturacion']['BEN1_70']['avna'])}", facturacion['facturacion']['BEN1_70']['count']],
+                        ['Pagar a Aseavna (BEN1_70)', f"₡{format_number(facturacion['facturacion']['BEN1_70']['aseavna'])}", facturacion['facturacion']['BEN1_70']['count']],
+                        ['Facturar a AVNA (BEN2_62)', f"₡{format_number(facturacion['facturacion']['BEN2_62']['avna'])}", facturacion['facturacion']['BEN2_62']['count']],
+                        ['Pagar a Aseavna (BEN2_62)', f"₡{format_number(facturacion['facturacion']['BEN2_62']['aseavna'])}", facturacion['facturacion']['BEN2_62']['count']],
+                        ['Facturar a AVNA (Otros)', f"₡{format_number(facturacion['facturacion']['Otros']['avna'])}", facturacion['facturacion']['Otros']['count']],
+                        ['Pagar a Aseavna (Otros)', f"₡{format_number(facturacion['facturacion']['Otros']['aseavna'])}", facturacion['facturacion']['Otros']['count']],
+                        ['Contribución Aseavna (5%)', f"₡{format_number(facturacion['aseavna_contribution'])}", ''],
+                        ['Total a Facturar a Aseavna', f"₡{format_number(facturacion['facturar_aseavna'])}", '']
+                    ], columns=['Concepto', 'Monto', 'Transacciones'])
+                    facturacion_data.to_excel(writer, sheet_name='Facturación', index=False)
             buffer.seek(0)
             st.download_button(
                 label="Descargar Excel",
@@ -400,6 +459,18 @@ def main():
     st.markdown(
         f"Dato Interesante: {'Johanna Alfaro Quiros (BEN2_62) tiene una alta tasa de devoluciones, lo que sugiere problemas potenciales con la precisión o satisfacción de los pedidos.' if st.session_state.selected_tipo in ['BEN2_62', 'All'] else 'No se observaron patrones de devolución notables para este grupo.'}"
     )
+
+    # Desglose de Facturación
+    st.header("Desglose de Facturación (solo Almuerzo Ejecutivo Aseavna)")
+    st.write("Nota: Los subsidios y costos asociados se aplican únicamente al producto 'Almuerzo Ejecutivo Aseavna'.")
+    st.write(f"Facturar a AVNA (BEN1_70): ₡{format_number(facturacion['facturacion']['BEN1_70']['avna'])} ({facturacion['facturacion']['BEN1_70']['count']} transacciones)")
+    st.write(f"Pagar a Aseavna (BEN1_70): ₡{format_number(facturacion['facturacion']['BEN1_70']['aseavna'])}")
+    st.write(f"Facturar a AVNA (BEN2_62): ₡{format_number(facturacion['facturacion']['BEN2_62']['avna'])} ({facturacion['facturacion']['BEN2_62']['count']} transacciones)")
+    st.write(f"Pagar a Aseavna (BEN2_62): ₡{format_number(facturacion['facturacion']['BEN2_62']['aseavna'])}")
+    st.write(f"Facturar a AVNA (Otros): ₡{format_number(facturacion['facturacion']['Otros']['avna'])} ({facturacion['facturacion']['Otros']['count']} transacciones)")
+    st.write(f"Pagar a Aseavna (Otros): ₡{format_number(facturacion['facturacion']['Otros']['aseavna'])}")
+    st.write(f"Contribución Aseavna (5%): ₡{format_number(facturacion['aseavna_contribution'])}")
+    st.write(f"Total a Facturar a Aseavna: ₡{format_number(facturacion['facturar_aseavna'])}")
 
     # Gráficos
     if st.session_state.export_options['revenue_chart']:
@@ -496,7 +567,7 @@ def main():
     st.header("Conclusión")
     st.write(
         f"El análisis de ventas para {'todos los grupos' if st.session_state.selected_tipo == 'All' else st.session_state.selected_tipo} "
-        f"revela una demanda constante por Almuerzo Ejecutivo Aseavna y Coca-Cola Regular 600mL, con subsidios que reducen efectivamente los costos para los empleados donde aplica. "
+        f"revela una demanda constante por Almuerzo Ejecutivo Aseavna y Coca-Cola Regular 600mL, con subsidios que reducen efectivamente los costos para los empleados solo en Almuerzo Ejecutivo Aseavna. "
         f"{'La alta tasa de devoluciones de Johanna Alfaro Quiros requiere mayor investigación para mejorar la precisión de los pedidos y la satisfacción del cliente.' if st.session_state.selected_tipo in ['BEN2_62', 'All'] else 'Se recomienda monitorear los patrones de consumo para identificar oportunidades de mejora en la gestión de inventarios.'}"
     )
 

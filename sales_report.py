@@ -455,7 +455,7 @@ def main():
         ]
     if st.session_state.selected_cost_center != 'All':
         filtered_data = filtered_data[filtered_data['cost_center'] == st.session_state.selected_cost_center]
-    if st.session_state06/16/2025if st.session_state.selected_client != 'All':
+    if st.session_state.selected_client != 'All':
         filtered_data = filtered_data[filtered_data['client'] == st.session_state.selected_client]
 
     filtered_comisiones = comisiones_no_subsidiadas.copy()
@@ -874,7 +874,9 @@ def main():
         with col_btn[2]:
             if st.button("Exportar a PDF"):
                 try:
-                    pdfkit.from_string("Reporte de Ventas", "reporte_ventas.pdf")
+                    # Especificar la ruta al ejecutable wkhtmltopdf (ajusta según tu sistema)
+                    config = pdfkit.configuration(wkhtmltopdf=r"C:\Program Files\wkhtmltopdf\bin\wkhtmltopdf.exe")
+                    pdfkit.from_string("Reporte de Ventas", "reporte_ventas.pdf", configuration=config)
                     with open("reporte_ventas.pdf", "rb") as f:
                         pdf_data = f.read()
                     st.download_button(
@@ -884,7 +886,7 @@ def main():
                         mime="application/pdf"
                     )
                 except Exception as e:
-                    st.warning(f"No se pudo generar el PDF. Asegúrate de que pdfkit y wkhtmltopdf estén instalados. Error: {e}")
+                    st.warning(f"No se pudo generar el PDF. Asegúrate de que pdfkit y wkhtmltopdf estén instalados correctamente. Error: {e}")
 
 if __name__ == "__main__":
     main()

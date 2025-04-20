@@ -86,46 +86,51 @@ class Venta:
         self.subsidy = 0
         self.employee_payment = self.total
         self.employee_payment_base = 0
-        self.asoavna_contribution = 0  # No se calcula aquí, se calculará en el total de la factura
-        self.asoavna_commission = 0    # No se calcula aquí, se calculará en el total de la factura
+        self.asoavna_commission = 0
         self.iva = 0
         self.client_credit = 0
         self.aseavna_account = 0
         self.base_price = 0
-        self.iva_calculated = 0
 
-    def aplicar_subsidios_y_comisiones(self):
-        # Para todos los productos, el precio total incluye el 13% IVA
-        self.base_price = self.total / 1.13  # Precio sin IVA
-        self.iva_calculated = self.total - self.base_price  # IVA incluido en el precio
+    def aplicar_subsidios_y_comisiones(self, iva_rate):
+        # Calcular precio base considerando el IVA seleccionado
+        iva_factor = 1 + (iva_rate / 100)
+        self.base_price = self.total / iva_factor
+        self.iva = self.total - self.base_price
 
+        # Ajustar el precio base para "Almuerzo Ejecutivo Aseavna"
         if self.is_subsidized:
+            # Para "Almuerzo Ejecutivo Aseavna", el precio total debe ser 3100
+            self.total = 3100
+            self.base_price = self.total / iva_factor
+            self.iva = self.total - self.base_price
+
             # Subsidios solo para BEN1_70 y BEN2_62
             if self.tipo == 'BEN1_70':
                 self.subsidy = 2100
-                self.employee_payment = 1000  # Incluye IVA
-                self.employee_payment_base = self.employee_payment / 1.13  # ≈ 884.96
-                self.iva = self.employee_payment - self.employee_payment_base  # ≈ 115.04
+                self.employee_payment = 1000
+                self.employee_payment_base = self.employee_payment / iva_factor
+                self.asoavna_commission = 150  # Comisión fija por transacción
             elif self.tipo == 'BEN2_62':
                 self.subsidy = 1800
-                self.employee_payment = 1300  # Incluye IVA
-                self.employee_payment_base = self.employee_payment / 1.13  # ≈ 1150.44
-                self.iva = self.employee_payment - self.employee_payment_base  # ≈ 149.56
+                self.employee_payment = 1300
+                self.employee_payment_base = self.employee_payment / iva_factor
+                self.asoavna_commission = 150  # Comisión fija por transacción
             else:
                 # Para otros tipos (Visitas, etc.), no hay subsidio
                 self.subsidy = 0
                 self.employee_payment = self.total
                 self.employee_payment_base = self.base_price
-                self.iva = self.iva_calculated
+                self.asoavna_commission = self.total * 0.05  # 5% por transacción
         else:
             # Para productos no subsidiados (ej. frescos)
             self.subsidy = 0
             self.employee_payment = self.total
             self.employee_payment_base = self.base_price
-            self.iva = self.iva_calculated
+            self.asoavna_commission = self.total * 0.05  # 5% por transacción
 
         self.client_credit = self.employee_payment
-        self.aseavna_account = self.subsidy  # Solo el subsidio, sin incluir comisiones aquí
+        self.aseavna_account = self.subsidy
 
     def to_dict(self):
         return {
@@ -149,7 +154,6 @@ class Venta:
             'subsidy': self.subsidy,
             'employee_payment': self.employee_payment,
             'employee_payment_base': self.employee_payment_base,
-            'asoavna_contribution': self.asoavna_contribution,
             'asoavna_commission': self.asoavna_commission,
             'iva': self.iva,
             'client_credit': self.client_credit,
@@ -158,7 +162,8 @@ class Venta:
 
 # Clase para manejar el reporte de ventas
 class ReporteVentas:
-    def __init__(self, sales_df, user_df):
+    def __init__(self, sales_df, user_df, iva_rate):
+        self.iva_rate = iva_rate
         self.contactos = self._procesar_contactos(user_df)
         self.ventas = self._procesar_ventas(sales_df)
         self._aplicar_subsidios_y_comisiones()
@@ -207,7 +212,7 @@ class ReporteVentas:
 
     def _aplicar_subsidios_y_comisiones(self):
         for venta in self.ventas:
-            venta.aplicar_subsidios_y_comisiones()
+            venta.aplicar_subsidios_y_comisiones(self.iva_rate)
 
     def _crear_dataframe(self):
         datos = [venta.to_dict() for venta in self.ventas]
@@ -224,11 +229,10 @@ class ReporteVentas:
             'Otros': {'avna': 0, 'aseavna': 0, 'count': 0, 'iva': 0}
         }
 
-        # Calcular facturación y total de ventas para la comisión
-        total_sales = 0
+        # Calcular facturación y sumar comisiones por transacción
+        total_commission = 0
         for _, row in df.iterrows():
-            # Sumar al total de ventas (precio total * cantidad)
-            total_sales += row['total'] * row['quantity']
+            total_commission += row['asoavna_commission'] * row['quantity']
 
             if not row['is_subsidized']:
                 continue
@@ -248,18 +252,15 @@ class ReporteVentas:
                 facturacion['Otros']['count'] += row['quantity']
                 facturacion['Otros']['iva'] += row['iva'] * row['quantity']
 
-        # Calcular la comisión del 5% sobre el total de ventas
-        aseavna_commission = total_sales * 0.05
         total_iva = facturacion['BEN1_70']['iva'] + facturacion['BEN2_62']['iva'] + facturacion['Otros']['iva']
         facturar_aseavna = (facturacion['BEN1_70']['aseavna'] + facturacion['BEN2_62']['aseavna'] +
-                            facturacion['Otros']['aseavna'] + total_iva)
+                            facturacion['Otros']['aseavna'] + total_commission + total_iva)
 
         return {
             'facturacion': facturacion,
-            'aseavna_commission': aseavna_commission,
+            'aseavna_commission': total_commission,
             'facturar_aseavna': facturar_aseavna,
-            'total_iva': total_iva,
-            'total_sales': total_sales
+            'total_iva': total_iva
         }
 
     def _calcular_comisiones_no_subsidiadas(self):
@@ -273,6 +274,7 @@ class ReporteVentas:
                     'product': row['product'],
                     'total': row['total'] * row['quantity'],
                     'base_price': row['base_price'] * row['quantity'],
+                    'asoavna_commission': row['asoavna_commission'] * row['quantity'],
                     'iva': row['iva'] * row['quantity']
                 })
         return pd.DataFrame(comisiones)
@@ -388,9 +390,22 @@ def main():
     if sales_df is None or user_df is None:
         return
 
-    if 'reporte' not in st.session_state:
+    # Configuración del IVA
+    if 'iva_rate' not in st.session_state:
+        st.session_state.iva_rate = 0  # Default 0%
+
+    with tabs[0]:
+        st.header("Configuración de IVA")
+        iva_options = [0, 13]
+        selected_iva = st.selectbox("Tasa de IVA (%)", iva_options, index=iva_options.index(st.session_state.iva_rate), key="iva_rate_select")
+        if selected_iva != st.session_state.iva_rate:
+            st.session_state.iva_rate = selected_iva
+            st.session_state.reporte = None  # Forzar recálculo del reporte
+            st.rerun()
+
+    if 'reporte' not in st.session_state or st.session_state.reporte is None:
         try:
-            st.session_state.reporte = ReporteVentas(sales_df, user_df)
+            st.session_state.reporte = ReporteVentas(sales_df, user_df, st.session_state.iva_rate)
         except Exception as e:
             st.error(f"Error al procesar los datos: {e}")
             return
@@ -561,9 +576,9 @@ def main():
             'BEN2_62': {'avna': 0, 'aseavna': 0, 'count': 0, 'iva': 0},
             'Otros': {'avna': 0, 'aseavna': 0, 'count': 0, 'iva': 0}
         }
-        total_sales_filtered = 0
+        total_commission_filtered = 0
         for _, row in filtered_data.iterrows():
-            total_sales_filtered += row['total'] * row['quantity']
+            total_commission_filtered += row['asoavna_commission'] * row['quantity']
             if not row['is_subsidized']:
                 continue
             if row['tipo'] == 'BEN1_70':
@@ -582,14 +597,13 @@ def main():
                 facturacion_filtered['Otros']['count'] += row['quantity']
                 facturacion_filtered['Otros']['iva'] += row['iva'] * row['quantity']
 
-        aseavna_commission = total_sales_filtered * 0.05
-        total_iva = facturacion_filtered['BEN1_70']['iva'] + facturacion_filtered['BEN2_62']['iva'] + facturacion_filtered['Otros']['iva']
+        total_iva_filtered = facturacion_filtered['BEN1_70']['iva'] + facturacion_filtered['BEN2_62']['iva'] + facturacion_filtered['Otros']['iva']
         non_subsidized_iva = filtered_comisiones['iva'].sum()
         total_facturar_aseavna = (facturacion_filtered['BEN1_70']['aseavna'] +
                                  facturacion_filtered['BEN2_62']['aseavna'] +
                                  facturacion_filtered['Otros']['aseavna'] +
-                                 aseavna_commission +
-                                 total_iva +
+                                 total_commission_filtered +
+                                 total_iva_filtered +
                                  non_subsidized_iva)
 
         facturacion_df = pd.DataFrame([
@@ -599,8 +613,8 @@ def main():
             {'Concepto': 'Diferencia a Aseavna (BEN2_62)', 'Monto': format_number(facturacion_filtered['BEN2_62']['aseavna']), 'Transacciones': facturacion_filtered['BEN2_62']['count']},
             {'Concepto': 'Facturar a AVNA (Otros)', 'Monto': format_number(facturacion_filtered['Otros']['avna']), 'Transacciones': facturacion_filtered['Otros']['count']},
             {'Concepto': 'Diferencia a Aseavna (Otros)', 'Monto': format_number(facturacion_filtered['Otros']['aseavna']), 'Transacciones': facturacion_filtered['Otros']['count']},
-            {'Concepto': 'Comisión Aseavna (5% del Total de Ventas)', 'Monto': format_number(aseavna_commission), 'Transacciones': ''},
-            {'Concepto': 'IVA (13%)', 'Monto': format_number(total_iva + non_subsidized_iva), 'Transacciones': ''},
+            {'Concepto': 'Comisión Aseavna (Total por Transacciones)', 'Monto': format_number(total_commission_filtered), 'Transacciones': ''},
+            {'Concepto': 'IVA', 'Monto': format_number(total_iva_filtered + non_subsidized_iva), 'Transacciones': ''},
             {'Concepto': 'Total a Facturar a Aseavna', 'Monto': format_number(total_facturar_aseavna), 'Transacciones': ''}
         ])
         st.dataframe(facturacion_df, use_container_width=True)
@@ -665,7 +679,6 @@ def main():
         paginated_data['total'] = paginated_data['total'].apply(format_number)
         paginated_data['subsidy'] = paginated_data['subsidy'].apply(format_number)
         paginated_data['employee_payment'] = paginated_data['employee_payment'].apply(format_number)
-        paginated_data['asoavna_contribution'] = (paginated_data['asoavna_contribution'] * paginated_data['quantity']).apply(format_number)
         paginated_data['asoavna_commission'] = (paginated_data['asoavna_commission'] * paginated_data['quantity']).apply(format_number)
         paginated_data['iva'] = (paginated_data['iva'] * paginated_data['quantity']).apply(format_number)
         paginated_data['client_credit'] = paginated_data['client_credit'].apply(format_number)
@@ -734,15 +747,14 @@ def main():
                     st.metric("Total en Cuenta de Aseavna", format_number(client_data['total_aseavna_account']))
 
                 st.subheader("Transacciones Subsidiadas (Almuerzo Ejecutivo Aseavna)")
-                subsidized_df = client_data['subsidized'][['date', 'product', 'quantity', 'total', 'subsidy', 'employee_payment', 'asoavna_contribution', 'client_credit', 'aseavna_account', 'asoavna_commission', 'iva']]
+                subsidized_df = client_data['subsidized'][['date', 'product', 'quantity', 'total', 'subsidy', 'employee_payment', 'asoavna_commission', 'client_credit', 'aseavna_account', 'iva']]
                 subsidized_df['date'] = subsidized_df['date'].dt.strftime('%Y-%m-%d')
                 subsidized_df['total'] = subsidized_df['total'].apply(format_number)
                 subsidized_df['subsidy'] = subsidized_df['subsidy'].apply(format_number)
                 subsidized_df['employee_payment'] = subsidized_df['employee_payment'].apply(format_number)
-                subsidized_df['asoavna_contribution'] = (subsidized_df['asoavna_contribution'] * subsidized_df['quantity']).apply(format_number)
+                subsidized_df['asoavna_commission'] = (subsidized_df['asoavna_commission'] * subsidized_df['quantity']).apply(format_number)
                 subsidized_df['client_credit'] = subsidized_df['client_credit'].apply(format_number)
                 subsidized_df['aseavna_account'] = subsidized_df['aseavna_account'].apply(format_number)
-                subsidized_df['asoavna_commission'] = (subsidized_df['asoavna_commission'] * subsidized_df['quantity']).apply(format_number)
                 subsidized_df['iva'] = (subsidized_df['iva'] * subsidized_df['quantity']).apply(format_number)
                 st.dataframe(subsidized_df, use_container_width=True)
 
@@ -765,11 +777,12 @@ def main():
     # Pestaña de Comisiones No Subsidiadas
     with tabs[5]:
         st.header("Comisiones de Productos No Subsidiados")
-        st.write("Nota: La comisión del 5% se aplica al total de ventas, no por producto individual.")
+        st.write("Nota: La comisión para productos no subsidiados es del 5% por transacción.")
         if not filtered_comisiones.empty:
             comisiones_display = filtered_comisiones.copy()
             comisiones_display['total'] = comisiones_display['total'].apply(format_number)
             comisiones_display['base_price'] = comisiones_display['base_price'].apply(format_number)
+            comisiones_display['asoavna_commission'] = comisiones_display['asoavna_commission'].apply(format_number)
             comisiones_display['iva'] = comisiones_display['iva'].apply(format_number)
             st.dataframe(comisiones_display, use_container_width=True)
         else:
@@ -826,19 +839,19 @@ def main():
                             ['Diferencia a Aseavna (BEN2_62)', format_number(facturacion_filtered['BEN2_62']['aseavna']), facturacion_filtered['BEN2_62']['count']],
                             ['Facturar a AVNA (Otros)', format_number(facturacion_filtered['Otros']['avna']), facturacion_filtered['Otros']['count']],
                             ['Diferencia a Aseavna (Otros)', format_number(facturacion_filtered['Otros']['aseavna']), facturacion_filtered['Otros']['count']],
-                            ['Comisión Aseavna (5% del Total de Ventas)', format_number(aseavna_commission), ''],
-                            ['IVA (13%)', format_number(total_iva + non_subsidized_iva), ''],
+                            ['Comisión Aseavna (Total por Transacciones)', format_number(total_commission_filtered), ''],
+                            ['IVA', format_number(total_iva_filtered + non_subsidized_iva), ''],
                             ['Total a Facturar a Aseavna', format_number(total_facturar_aseavna), '']
                         ], columns=['Concepto', 'Monto', 'Transacciones'])
                         facturacion_data.to_excel(writer, sheet_name='Facturación', index=False)
 
                     if st.session_state.export_options['individual_report']:
                         for client, datos in reportes_individuales.items():
-                            client_df = datos['transacciones'][['date', 'product', 'quantity', 'total', 'subsidy', 'employee_payment', 'asoavna_contribution', 'client_credit', 'aseavna_account', 'asoavna_commission', 'iva']]
+                            client_df = datos['transacciones'][['date', 'product', 'quantity', 'total', 'subsidy', 'employee_payment', 'asoavna_commission', 'client_credit', 'aseavna_account', 'iva']]
                             client_df.to_excel(writer, sheet_name=f'Cliente_{client[:20]}', index=False)
 
                     if st.session_state.export_options['non_subsidized_commissions']:
-                        comisiones_df = filtered_comisiones[['display_name', 'product', 'total', 'base_price', 'iva']]
+                        comisiones_df = filtered_comisiones[['display_name', 'product', 'total', 'base_price', 'asoavna_commission', 'iva']]
                         comisiones_df.to_excel(writer, sheet_name='Comisiones_No_Subsidiadas', index=False)
 
                 buffer.seek(0)

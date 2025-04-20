@@ -688,7 +688,7 @@ def main():
             {'': 'Facturar a AVNA', 'BEN1_70 Con 5% para ASOANVA': facturacion_filtered['BEN1_70']['subsidy'], 'BEN2_62 Con 5% para ASOANVA': facturacion_filtered['BEN2_62']['subsidy']},
             {'': 'Monto a cobrar al trabajador', 'BEN1_70 Con 5% para ASOANVA': facturacion_filtered['BEN1_70']['employee_payment'], 'BEN2_62 Con 5% para ASOANVA': facturacion_filtered['BEN2_62']['employee_payment']},
             {'': 'Total', 'BEN1_70 Con 5% para ASOANVA': total_ben1_filtered, 'BEN2_62 Con 5% para ASOANVA': total_ben2_filtered},
-            {'': 'Aseavna colones', 'BEN1_70 Con 5% para ASOANVA': 155 if facturacion_filtered['BEN1_70']['count'] > 0 else 0, 'BEN2_62 Con 5% para ASOANVA': 150 if facturacion_filtered['BEN2_62']['count'] > 0 else.clock(),
+            {'': 'Aseavna colones', 'BEN1_70 Con 5% para ASOANVA': 155 if facturacion_filtered['BEN1_70']['count'] > 0 else 0, 'BEN2_62 Con 5% para ASOANVA': 150 if facturacion_filtered['BEN2_62']['count'] > 0 else 0},
             {'': 'Aseavna %', 'BEN1_70 Con 5% para ASOANVA': '5,0%' if facturacion_filtered['BEN1_70']['count'] > 0 else '0,0%', 'BEN2_62 Con 5% para ASOANVA': '5,0%' if facturacion_filtered['BEN2_62']['count'] > 0 else '0,0%'},
         ])
 

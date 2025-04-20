@@ -8,6 +8,8 @@ import base64
 from io import BytesIO
 import unicodedata
 import hashlib
+import os
+import tempfile
 
 # Configuración de la página
 st.set_page_config(page_title="Sistema de Reportes de Ventas - ASEAVNA", layout="wide")
@@ -93,41 +95,35 @@ class Venta:
         self.base_price = 0
 
     def aplicar_subsidios_y_comisiones(self, iva_rate):
-        # Calcular precio base considerando el IVA seleccionado
         iva_factor = 1 + (iva_rate / 100)
         self.base_price = self.total / iva_factor
         self.iva = self.total - self.base_price
 
-        # Ajustar el precio base para "Almuerzo Ejecutivo Aseavna"
         if self.is_subsidized:
-            # Para "Almuerzo Ejecutivo Aseavna", el precio total debe ser 3100
             self.total = 3100
             self.base_price = self.total / iva_factor
             self.iva = self.total - self.base_price
 
-            # Subsidios y comisiones
             if self.tipo == 'BEN1_70':
                 self.subsidy = 2100
                 self.employee_payment = 1000
                 self.employee_payment_base = self.employee_payment / iva_factor
-                self.asoavna_commission = 155  # Comisión fija por transacción
+                self.asoavna_commission = 155
             elif self.tipo == 'BEN2_62':
                 self.subsidy = 1800
                 self.employee_payment = 1300
                 self.employee_payment_base = self.employee_payment / iva_factor
-                self.asoavna_commission = 150  # Comisión fija por transacción
+                self.asoavna_commission = 150
             else:
-                # Para otros tipos (Visitas, etc.), no hay subsidio
                 self.subsidy = 0
                 self.employee_payment = self.total
                 self.employee_payment_base = self.base_price
-                self.asoavna_commission = self.total * 0.05  # 5% por transacción
+                self.asoavna_commission = self.total * 0.05
         else:
-            # Para productos no subsidiados (ej. frescos)
             self.subsidy = 0
             self.employee_payment = self.total
             self.employee_payment_base = self.base_price
-            self.asoavna_commission = self.total * 0.05  # 5% por transacción
+            self.asoavna_commission = self.total * 0.05
 
         self.client_credit = self.employee_payment
         self.aseavna_account = self.subsidy
@@ -187,6 +183,11 @@ class ReporteVentas:
         return contactos
 
     def _procesar_ventas(self, sales_df):
+        required_columns = ['Cliente', 'Empresa', 'Fecha de la orden', 'Orden', 'Cant. ordenada', 'Precio unitario', 'Total', 'Variante del producto', 'Vendedor']
+        missing_columns = [col for col in required_columns if col not in sales_df.columns]
+        if missing_columns:
+            raise ValueError(f"Columnas faltantes en sales_data.csv: {', '.join(missing_columns)}")
+
         ventas = []
         for _, row in sales_df.iterrows():
             cliente = row['Cliente']
@@ -225,18 +226,15 @@ class ReporteVentas:
     def _generar_etiquetas_fila(self, df=None):
         if df is None:
             df = self.datos.copy()
-        # Agrupar por cliente y producto
         grouped = df.groupby(['client', 'display_name', 'tipo', 'product']).agg({
             'quantity': 'sum',
             'client_credit': 'sum',
             'aseavna_account': 'sum'
         }).reset_index()
 
-        # Crear una lista para las filas del reporte
         etiquetas_data = []
         current_tipo = None
         for _, row in grouped.sort_values(['tipo', 'client', 'product']).iterrows():
-            # Si el tipo cambia, añadir un encabezado
             if row['tipo'] != current_tipo:
                 etiquetas_data.append({
                     'Empleado': f"ASEAVNA {row['tipo']}",
@@ -247,7 +245,6 @@ class ReporteVentas:
                 })
                 current_tipo = row['tipo']
 
-            # Añadir la fila del empleado
             etiquetas_data.append({
                 'Empleado': row['display_name'],
                 'Producto': row['product'],
@@ -256,7 +253,6 @@ class ReporteVentas:
                 'Suma de Monto Subsidiado': row['aseavna_account'] * row['quantity']
             })
 
-        # Añadir filas "en blanco" si es necesario (para tipos sin transacciones)
         tipos_esperados = ['BEN1_70', 'BEN2_62', 'AVNA VISITAS']
         tipos_presentes = grouped['tipo'].unique()
         for tipo in tipos_esperados:
@@ -269,7 +265,6 @@ class ReporteVentas:
                     'Suma de Monto Subsidiado': 0
                 })
 
-        # Añadir fila "Total general"
         total_quantity = grouped['quantity'].sum()
         total_client = (grouped['client_credit'] * grouped['quantity']).sum()
         total_subsidized = (grouped['aseavna_account'] * grouped['quantity']).sum()
@@ -315,13 +310,11 @@ class ReporteVentas:
                 facturacion['Otros']['iva'] += row['iva'] * row['quantity']
                 facturacion['Otros']['commission'] += row['asoavna_commission'] * row['quantity']
 
-        # Calcular porcentajes de subsidio
         total_ben1 = facturacion['BEN1_70']['subsidy'] + facturacion['BEN1_70']['employee_payment']
         total_ben2 = facturacion['BEN2_62']['subsidy'] + facturacion['BEN2_62']['employee_payment']
         subsidy_percentage_ben1 = (facturacion['BEN1_70']['subsidy'] / total_ben1 * 100) if total_ben1 > 0 else 0
         subsidy_percentage_ben2 = (facturacion['BEN2_62']['subsidy'] / total_ben2 * 100) if total_ben2 > 0 else 0
 
-        # Calcular totales
         total_subsidy = facturacion['BEN1_70']['subsidy'] + facturacion['BEN2_62']['subsidy'] + facturacion['Otros']['subsidy']
         total_employee_payment = facturacion['BEN1_70']['employee_payment'] + facturacion['BEN2_62']['employee_payment'] + facturacion['Otros']['employee_payment']
         total_iva = facturacion['BEN1_70']['iva'] + facturacion['BEN2_62']['iva'] + facturacion['Otros']['iva']
@@ -568,7 +561,7 @@ def main():
     # Recalcular etiquetas_fila con datos filtrados
     filtered_etiquetas = reporte._generar_etiquetas_fila(filtered_data)
 
-    # Depuración: Mostrar el valor de sort_key y las columnas de filtered_data
+    # Depuración
     st.write(f"Debug - sort_key: {st.session_state.sort_key}")
     st.write(f"Debug - filtered_data columns: {list(filtered_data.columns)}")
     st.write(f"Debug - filtered_data shape: {filtered_data.shape}")
@@ -576,7 +569,7 @@ def main():
     # Validar que sort_key sea una columna válida en filtered_data
     if st.session_state.sort_key not in filtered_data.columns:
         st.error(f"Error: La columna '{st.session_state.sort_key}' no existe en filtered_data. Columnas disponibles: {list(filtered_data.columns)}. Revirtiendo a 'display_name'.")
-        st.session_state.sort_key = 'display_name'  # Revertir a una columna conocida
+        st.session_state.sort_key = 'display_name'
         if 'display_name' not in filtered_data.columns:
             st.error("Error crítico: La columna 'display_name' no está presente en filtered_data. Verifica los datos de entrada.")
             return
@@ -633,7 +626,6 @@ def main():
             unique_clients = ['All'] + sorted(sales_data['client'].unique())
             selected_client = st.selectbox("Cliente", unique_clients, index=unique_clients.index(st.session_state.selected_client) if st.session_state.selected_client in unique_clients else 0, key="client_filter")
 
-        # Forzar actualización de los filtros
         if (selected_tipo != st.session_state.selected_tipo or
             start_date != st.session_state.date_range_start or
             end_date != st.session_state.date_range_end or
@@ -715,13 +707,11 @@ def main():
         filtered_comisiones_df = pd.DataFrame(comisiones)
         non_subsidized_iva = filtered_comisiones_df['iva'].sum() if not filtered_comisiones_df.empty else 0
 
-        # Calcular totales
         total_ben1_filtered = facturacion_filtered['BEN1_70']['subsidy'] + facturacion_filtered['BEN1_70']['employee_payment']
         total_ben2_filtered = facturacion_filtered['BEN2_62']['subsidy'] + facturacion_filtered['BEN2_62']['employee_payment']
         subsidy_percentage_ben1_filtered = (facturacion_filtered['BEN1_70']['subsidy'] / total_ben1_filtered * 100) if total_ben1_filtered > 0 else 0
         subsidy_percentage_ben2_filtered = (facturacion_filtered['BEN2_62']['subsidy'] / total_ben2_filtered * 100) if total_ben2_filtered > 0 else 0
 
-        # Crear tabla de facturación
         facturacion_df = pd.DataFrame([
             {'': 'Subsidio', 'BEN1_70 Con 5% para ASOANVA': 2100 if facturacion_filtered['BEN1_70']['count'] > 0 else 0, 'BEN2_62 Con 5% para ASOANVA': 1800 if facturacion_filtered['BEN2_62']['count'] > 0 else 0},
             {'': 'Diferencia', 'BEN1_70 Con 5% para ASOANVA': 1000 if facturacion_filtered['BEN1_70']['count'] > 0 else 0, 'BEN2_62 Con 5% para ASOANVA': 1300 if facturacion_filtered['BEN2_62']['count'] > 0 else 0},
@@ -736,17 +726,14 @@ def main():
             {'': 'Aseavna %', 'BEN1_70 Con 5% para ASOANVA': '5,0%' if facturacion_filtered['BEN1_70']['count'] > 0 else '0,0%', 'BEN2_62 Con 5% para ASOANVA': '5,0%' if facturacion_filtered['BEN2_62']['count'] > 0 else '0,0%'},
         ])
 
-        # Añadir columna Total
         facturacion_df['Total'] = facturacion_df.apply(lambda row: (row['BEN1_70 Con 5% para ASOANVA'] + row['BEN2_62 Con 5% para ASOANVA']) if isinstance(row['BEN1_70 Con 5% para ASOANVA'], (int, float)) else '', axis=1)
 
-        # Añadir conteo de transacciones
         facturacion_df.loc[facturacion_df[''] == 'Total', 'BEN1_70 Con 5% para ASOANVA'] = facturacion_filtered['BEN1_70']['count']
         facturacion_df.loc[facturacion_df[''] == 'Total', 'BEN2_62 Con 5% para ASOANVA'] = facturacion_filtered['BEN2_62']['count']
         facturacion_df.loc[facturacion_df[''] == 'Total', 'Total'] = facturacion_filtered['BEN1_70']['count'] + facturacion_filtered['BEN2_62']['count']
 
         st.dataframe(facturacion_df, use_container_width=True)
 
-        # Facturación adicional
         total_facturar_avna = total_subsidy_filtered
         total_aseavna_recoleta = total_employee_payment_filtered + filtered_comisiones_df['total'].sum() if not filtered_comisiones_df.empty else total_employee_payment_filtered
         total_aseavna_5percent = total_commission_non_subsidized_filtered
@@ -864,8 +851,8 @@ def main():
     with tabs[5]:
         st.header("Comisiones de Productos No Subsidiados")
         st.write("Nota: La comisión para productos no subsidiados es del 5% por transacción.")
-        if not filtered_comisiones.empty:
-            comisiones_display = filtered_comisiones.copy()
+        if not filtered_comisiones_df.empty:
+            comisiones_display = filtered_comisiones_df.copy()
             comisiones_display['total'] = comisiones_display['total'].apply(format_number)
             comisiones_display['base_price'] = comisiones_display['base_price'].apply(format_number)
             comisiones_display['asoavna_commission'] = comisiones_display['asoavna_commission'].apply(format_number)
@@ -927,7 +914,7 @@ def main():
                             client_df.to_excel(writer, sheet_name=f'Cliente_{client[:20]}', index=False)
 
                     if st.session_state.export_options['non_subsidized_commissions']:
-                        comisiones_df = filtered_comisiones[['display_name', 'product', 'total', 'base_price', 'asoavna_commission', 'iva']]
+                        comisiones_df = filtered_comisiones_df[['display_name', 'product', 'total', 'base_price', 'asoavna_commission', 'iva']]
                         comisiones_df.to_excel(writer, sheet_name='Comisiones_No_Subsidiadas', index=False)
 
                 buffer.seek(0)
@@ -952,16 +939,18 @@ def main():
         with col_btn[2]:
             if st.button("Exportar a PDF"):
                 try:
-                    config = pdfkit.configuration(wkhtmltopdf=r"C:\Program Files\wkhtmltopdf\bin\wkhtmltopdf.exe")
-                    pdfkit.from_string("Reporte de Ventas", "reporte_ventas.pdf", configuration=config)
-                    with open("reporte_ventas.pdf", "rb") as f:
-                        pdf_data = f.read()
-                    st.download_button(
-                        label="Descargar PDF",
-                        data=pdf_data,
-                        file_name=f"reporte_ventas_aseavna_{datetime.now().strftime('%Y-%m-%d')}.pdf",
-                        mime="application/pdf"
-                    )
+                    # Usar archivo temporal para PDF
+                    with tempfile.NamedTemporaryFile(delete=False, suffix='.pdf') as tmp_file:
+                        pdfkit.from_string("Reporte de Ventas", tmp_file.name)
+                        with open(tmp_file.name, "rb") as f:
+                            pdf_data = f.read()
+                        st.download_button(
+                            label="Descargar PDF",
+                            data=pdf_data,
+                            file_name=f"reporte_ventas_aseavna_{datetime.now().strftime('%Y-%m-%d')}.pdf",
+                            mime="application/pdf"
+                        )
+                    os.unlink(tmp_file.name)  # Eliminar archivo temporal
                 except Exception as e:
                     st.warning(f"No se pudo generar el PDF. Asegúrate de que pdfkit y wkhtmltopdf estén instalados correctamente. Error: {e}")
 

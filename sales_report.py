@@ -510,9 +510,10 @@ def main():
         st.session_state.selected_client = 'All'
     if 'current_page' not in st.session_state:
         st.session_state.current_page = 1
-    # Forzar la inicialización de sort_key y sort_direction para evitar problemas de estado persistente
-    st.session_state.sort_key = 'display_name'  # Forzar a 'display_name'
-    st.session_state.sort_direction = 'asc'  # Forzar a 'asc'
+    if 'sort_key' not in st.session_state:
+        st.session_state.sort_key = 'display_name'
+    if 'sort_direction' not in st.session_state:
+        st.session_state.sort_direction = 'asc'
     if 'export_options' not in st.session_state:
         st.session_state.export_options = {
             'revenue_chart': True,
@@ -551,15 +552,26 @@ def main():
     # Recalcular etiquetas_fila con datos filtrados
     filtered_etiquetas = reporte._generar_etiquetas_fila(filtered_data)
 
-    # Depuración: Mostrar el valor de sort_key y las columnas de filtered_data
-    st.write(f"Debug - sort_key: {st.session_state.sort_key}")
-    st.write(f"Debug - filtered_data columns: {list(filtered_data.columns)}")
-    st.write(f"Debug - filtered_data shape: {filtered_data.shape}")
+    # Validar columnas esperadas
+    expected_columns = ['display_name', 'client', 'tipo', 'date', 'quantity', 'total', 'subsidy', 'employee_payment', 'asoavna_commission', 'iva', 'client_credit', 'aseavna_account', 'cost_center', 'product']
+    missing_columns = [col for col in expected_columns if col not in filtered_data.columns]
+    if missing_columns:
+        st.error(f"Error: Faltan las siguientes columnas en los datos filtrados: {missing_columns}")
+        return
 
-    filtered_data = filtered_data.sort_values(
-        by=st.session_state.sort_key,
-        ascending=(st.session_state.sort_direction == 'asc')
-    )
+    # Validar sort_key
+    if st.session_state.sort_key not in filtered_data.columns:
+        st.warning(f"Error: La columna '{st.session_state.sort_key}' no existe. Restableciendo a 'display_name'.")
+        st.session_state.sort_key = 'display_name'
+
+    # Ordenar datos
+    if filtered_data.empty:
+        st.warning("No hay datos para mostrar con los filtros actuales.")
+    else:
+        filtered_data = filtered_data.sort_values(
+            by=st.session_state.sort_key,
+            ascending=(st.session_state.sort_direction == 'asc')
+        )
 
     aggregated = reporte.aggregate_data(filtered_data)
 
@@ -809,7 +821,7 @@ def main():
                 non_subsidized_df['date'] = non_subsidized_df['date'].dt.strftime('%Y-%m-%d')
                 non_subsidized_df['total'] = non_subsidized_df['total'].apply(format_number)
                 non_subsidized_df['subsidy'] = non_subsidized_df['subsidy'].apply(format_number)
-                non_subsidized_df['employee_payment'] = non_subsidized_df['employee_payment].apply(format_number)
+                non_subsidized_df['employee_payment'] = non_subsidized_df['employee_payment'].apply(format_number)
                 non_subsidized_df['asoavna_commission'] = (non_subsidized_df['asoavna_commission'] * non_subsidized_df['quantity']).apply(format_number)
                 non_subsidized_df['client_credit'] = non_subsidized_df['client_credit'].apply(format_number)
                 non_subsidized_df['aseavna_account'] = non_subsidized_df['aseavna_account'].apply(format_number)

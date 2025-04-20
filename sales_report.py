@@ -105,12 +105,12 @@ class Venta:
             self.base_price = self.total / iva_factor
             self.iva = self.total - self.base_price
 
-            # Subsidios solo para BEN1_70 y BEN2_62
+            # Subsidios y comisiones
             if self.tipo == 'BEN1_70':
                 self.subsidy = 2100
                 self.employee_payment = 1000
                 self.employee_payment_base = self.employee_payment / iva_factor
-                self.asoavna_commission = 150  # Comisión fija por transacción
+                self.asoavna_commission = 155  # Comisión fija por transacción
             elif self.tipo == 'BEN2_62':
                 self.subsidy = 1800
                 self.employee_payment = 1300
@@ -168,6 +168,7 @@ class ReporteVentas:
         self.ventas = self._procesar_ventas(sales_df)
         self._aplicar_subsidios_y_comisiones()
         self.datos = self._crear_dataframe()
+        self.etiquetas_fila = self._generar_etiquetas_fila()
         self.facturacion = self._calcular_facturacion()
         self.comisiones_no_subsidiadas = self._calcular_comisiones_no_subsidiadas()
         self.reportes_individuales = self._generar_reportes_individuales()
@@ -221,63 +222,139 @@ class ReporteVentas:
         df = df.drop_duplicates(subset='key').drop(columns='key')
         return df
 
+    def _generar_etiquetas_fila(self):
+        df = self.datos.copy()
+        # Agrupar por cliente y producto
+        grouped = df.groupby(['client', 'display_name', 'tipo', 'product']).agg({
+            'quantity': 'sum',
+            'client_credit': 'sum',
+            'aseavna_account': 'sum'
+        }).reset_index()
+
+        # Crear una lista para las filas del reporte
+        etiquetas_data = []
+        current_tipo = None
+        for _, row in grouped.sort_values(['tipo', 'client', 'product']).iterrows():
+            # Si el tipo cambia, añadir un encabezado
+            if row['tipo'] != current_tipo:
+                etiquetas_data.append({
+                    'Empleado': f"ASEAVNA {row['tipo']}",
+                    'Producto': '',
+                    'Suma de Cant. ordenada': '',
+                    'Suma de Monto Cliente': '',
+                    'Suma de Monto Subsidiado': ''
+                })
+                current_tipo = row['tipo']
+
+            # Añadir la fila del empleado
+            etiquetas_data.append({
+                'Empleado': row['display_name'],
+                'Producto': row['product'],
+                'Suma de Cant. ordenada': row['quantity'],
+                'Suma de Monto Cliente': row['client_credit'] * row['quantity'],
+                'Suma de Monto Subsidiado': row['aseavna_account'] * row['quantity']
+            })
+
+        # Añadir filas "en blanco" si es necesario (para tipos sin transacciones)
+        tipos_esperados = ['BEN1_70', 'BEN2_62', 'AVNA VISITAS']
+        tipos_presentes = grouped['tipo'].unique()
+        for tipo in tipos_esperados:
+            if tipo not in tipos_presentes:
+                etiquetas_data.append({
+                    'Empleado': f"ASEAVNA {tipo}",
+                    'Producto': '(en blanco)',
+                    'Suma de Cant. ordenada': 0,
+                    'Suma de Monto Cliente': 0,
+                    'Suma de Monto Subsidiado': 0
+                })
+
+        # Añadir fila "Total general"
+        total_quantity = grouped['quantity'].sum()
+        total_client = (grouped['client_credit'] * grouped['quantity']).sum()
+        total_subsidized = (grouped['aseavna_account'] * grouped['quantity']).sum()
+        etiquetas_data.append({
+            'Empleado': 'Total general',
+            'Producto': '',
+            'Suma de Cant. ordenada': total_quantity,
+            'Suma de Monto Cliente': total_client,
+            'Suma de Monto Subsidiado': total_subsidized
+        })
+
+        return pd.DataFrame(etiquetas_data)
+
     def _calcular_facturacion(self):
         df = self.datos
         facturacion = {
-            'BEN1_70': {'avna': 0, 'aseavna': 0, 'count': 0, 'iva': 0},
-            'BEN2_62': {'avna': 0, 'aseavna': 0, 'count': 0, 'iva': 0},
-            'Otros': {'avna': 0, 'aseavna': 0, 'count': 0, 'iva': 0}
+            'BEN1_70': {'count': 0, 'subsidy': 0, 'employee_payment': 0, 'iva': 0, 'commission': 0},
+            'BEN2_62': {'count': 0, 'subsidy': 0, 'employee_payment': 0, 'iva': 0, 'commission': 0},
+            'Otros': {'count': 0, 'subsidy': 0, 'employee_payment': 0, 'iva': 0, 'commission': 0}
         }
 
-        # Calcular facturación y sumar comisiones por transacción
         total_commission = 0
         for _, row in df.iterrows():
             total_commission += row['asoavna_commission'] * row['quantity']
-
             if not row['is_subsidized']:
                 continue
             if row['tipo'] == 'BEN1_70':
-                facturacion['BEN1_70']['avna'] += row['subsidy'] * row['quantity']
-                facturacion['BEN1_70']['aseavna'] += row['employee_payment_base'] * row['quantity']
                 facturacion['BEN1_70']['count'] += row['quantity']
+                facturacion['BEN1_70']['subsidy'] += row['subsidy'] * row['quantity']
+                facturacion['BEN1_70']['employee_payment'] += row['employee_payment_base'] * row['quantity']
                 facturacion['BEN1_70']['iva'] += row['iva'] * row['quantity']
+                facturacion['BEN1_70']['commission'] += row['asoavna_commission'] * row['quantity']
             elif row['tipo'] == 'BEN2_62':
-                facturacion['BEN2_62']['avna'] += row['subsidy'] * row['quantity']
-                facturacion['BEN2_62']['aseavna'] += row['employee_payment_base'] * row['quantity']
                 facturacion['BEN2_62']['count'] += row['quantity']
+                facturacion['BEN2_62']['subsidy'] += row['subsidy'] * row['quantity']
+                facturacion['BEN2_62']['employee_payment'] += row['employee_payment_base'] * row['quantity']
                 facturacion['BEN2_62']['iva'] += row['iva'] * row['quantity']
+                facturacion['BEN2_62']['commission'] += row['asoavna_commission'] * row['quantity']
             else:
-                facturacion['Otros']['avna'] += row['subsidy'] * row['quantity']
-                facturacion['Otros']['aseavna'] += row['employee_payment'] * row['quantity']
                 facturacion['Otros']['count'] += row['quantity']
+                facturacion['Otros']['subsidy'] += row['subsidy'] * row['quantity']
+                facturacion['Otros']['employee_payment'] += row['employee_payment'] * row['quantity']
                 facturacion['Otros']['iva'] += row['iva'] * row['quantity']
+                facturacion['Otros']['commission'] += row['asoavna_commission'] * row['quantity']
 
+        # Calcular porcentajes de subsidio
+        total_ben1 = facturacion['BEN1_70']['subsidy'] + facturacion['BEN1_70']['employee_payment']
+        total_ben2 = facturacion['BEN2_62']['subsidy'] + facturacion['BEN2_62']['employee_payment']
+        subsidy_percentage_ben1 = (facturacion['BEN1_70']['subsidy'] / total_ben1 * 100) if total_ben1 > 0 else 0
+        subsidy_percentage_ben2 = (facturacion['BEN2_62']['subsidy'] / total_ben2 * 100) if total_ben2 > 0 else 0
+
+        # Calcular totales
+        total_subsidy = facturacion['BEN1_70']['subsidy'] + facturacion['BEN2_62']['subsidy'] + facturacion['Otros']['subsidy']
+        total_employee_payment = facturacion['BEN1_70']['employee_payment'] + facturacion['BEN2_62']['employee_payment'] + facturacion['Otros']['employee_payment']
         total_iva = facturacion['BEN1_70']['iva'] + facturacion['BEN2_62']['iva'] + facturacion['Otros']['iva']
-        facturar_aseavna = (facturacion['BEN1_70']['aseavna'] + facturacion['BEN2_62']['aseavna'] +
-                            facturacion['Otros']['aseavna'] + total_commission + total_iva)
+        total_commission_subsidized = facturacion['BEN1_70']['commission'] + facturacion['BEN2_62']['commission'] + facturacion['Otros']['commission']
 
         return {
             'facturacion': facturacion,
-            'aseavna_commission': total_commission,
-            'facturar_aseavna': facturar_aseavna,
-            'total_iva': total_iva
+            'subsidy_percentage_ben1': subsidy_percentage_ben1,
+            'subsidy_percentage_ben2': subsidy_percentage_ben2,
+            'total_subsidy': total_subsidy,
+            'total_employee_payment': total_employee_payment,
+            'total_iva': total_iva,
+            'total_commission': total_commission,
+            'total_commission_subsidized': total_commission_subsidized
         }
 
     def _calcular_comisiones_no_subsidiadas(self):
         df = self.datos
         comisiones = []
+        total_commission_non_subsidized = 0
         for _, row in df.iterrows():
             if not row['is_subsidized']:
+                commission = row['asoavna_commission'] * row['quantity']
+                total_commission_non_subsidized += commission
                 comisiones.append({
                     'client': row['client'],
                     'display_name': row['display_name'],
                     'product': row['product'],
                     'total': row['total'] * row['quantity'],
                     'base_price': row['base_price'] * row['quantity'],
-                    'asoavna_commission': row['asoavna_commission'] * row['quantity'],
+                    'asoavna_commission': commission,
                     'iva': row['iva'] * row['quantity']
                 })
-        return pd.DataFrame(comisiones)
+        return pd.DataFrame(comisiones), total_commission_non_subsidized
 
     def _generar_reportes_individuales(self):
         df = self.datos
@@ -412,8 +489,9 @@ def main():
 
     reporte = st.session_state.reporte
     sales_data = reporte.datos
+    etiquetas_fila = reporte.etiquetas_fila
     facturacion = reporte.facturacion
-    comisiones_no_subsidiadas = reporte.comisiones_no_subsidiadas
+    comisiones_no_subsidiadas_df, total_commission_non_subsidized = reporte.comisiones_no_subsidiadas
     reportes_individuales = reporte.reportes_individuales
 
     # Inicializar estados de filtros
@@ -432,7 +510,7 @@ def main():
     if 'current_page' not in st.session_state:
         st.session_state.current_page = 1
     if 'sort_key' not in st.session_state:
-        st.session_state.sort_key = 'date'
+        st.session_state.sort_key = 'Empleado'
     if 'sort_direction' not in st.session_state:
         st.session_state.sort_direction = 'asc'
     if 'export_options' not in st.session_state:
@@ -466,9 +544,12 @@ def main():
     if st.session_state.selected_client != 'All':
         filtered_data = filtered_data[filtered_data['client'] == st.session_state.selected_client]
 
-    filtered_comisiones = comisiones_no_subsidiadas.copy()
+    filtered_comisiones = comisiones_no_subsidiadas_df.copy()
     if st.session_state.selected_client != 'All':
         filtered_comisiones = filtered_comisiones[filtered_comisiones['client'] == st.session_state.selected_client]
+
+    # Recalcular etiquetas_fila con datos filtrados
+    filtered_etiquetas = ReporteVentas(filtered_data, user_df, st.session_state.iva_rate).etiquetas_fila
 
     filtered_data = filtered_data.sort_values(
         by=st.session_state.sort_key,
@@ -536,24 +617,6 @@ def main():
             st.session_state.selected_cost_center = selected_cost_center
             st.session_state.selected_client = selected_client
             st.session_state.current_page = 1
-            # Forzar recalcular datos filtrados
-            filtered_data = sales_data.copy()
-            if st.session_state.selected_tipo != 'All':
-                filtered_data = filtered_data[filtered_data['tipo'] == st.session_state.selected_tipo]
-            if st.session_state.date_range_start and st.session_state.date_range_end:
-                filtered_data = filtered_data[
-                    (filtered_data['date'].dt.date >= st.session_state.date_range_start) &
-                    (filtered_data['date'].dt.date <= st.session_state.date_range_end)
-                ]
-            if st.session_state.search_query:
-                filtered_data = filtered_data[
-                    filtered_data['display_name'].str.lower().str.contains(st.session_state.search_query.lower(), na=False) |
-                    filtered_data['cedula'].str.lower().str.contains(st.session_state.search_query.lower(), na=False)
-                ]
-            if st.session_state.selected_cost_center != 'All':
-                filtered_data = filtered_data[filtered_data['cost_center'] == st.session_state.selected_cost_center]
-            if st.session_state.selected_client != 'All':
-                filtered_data = filtered_data[filtered_data['client'] == st.session_state.selected_client]
             st.rerun()
 
         if st.button("Restablecer Filtros"):
@@ -572,52 +635,89 @@ def main():
         st.write("Nota: Los subsidios y costos asociados se aplican únicamente al producto 'Almuerzo Ejecutivo Aseavna' para BEN1 y BEN2.")
 
         facturacion_filtered = {
-            'BEN1_70': {'avna': 0, 'aseavna': 0, 'count': 0, 'iva': 0},
-            'BEN2_62': {'avna': 0, 'aseavna': 0, 'count': 0, 'iva': 0},
-            'Otros': {'avna': 0, 'aseavna': 0, 'count': 0, 'iva': 0}
+            'BEN1_70': {'count': 0, 'subsidy': 0, 'employee_payment': 0, 'iva': 0, 'commission': 0},
+            'BEN2_62': {'count': 0, 'subsidy': 0, 'employee_payment': 0, 'iva': 0, 'commission': 0},
+            'Otros': {'count': 0, 'subsidy': 0, 'employee_payment': 0, 'iva': 0, 'commission': 0}
         }
-        total_commission_filtered = 0
         for _, row in filtered_data.iterrows():
-            total_commission_filtered += row['asoavna_commission'] * row['quantity']
             if not row['is_subsidized']:
                 continue
             if row['tipo'] == 'BEN1_70':
-                facturacion_filtered['BEN1_70']['avna'] += row['subsidy'] * row['quantity']
-                facturacion_filtered['BEN1_70']['aseavna'] += row['employee_payment_base'] * row['quantity']
                 facturacion_filtered['BEN1_70']['count'] += row['quantity']
+                facturacion_filtered['BEN1_70']['subsidy'] += row['subsidy'] * row['quantity']
+                facturacion_filtered['BEN1_70']['employee_payment'] += row['employee_payment_base'] * row['quantity']
                 facturacion_filtered['BEN1_70']['iva'] += row['iva'] * row['quantity']
+                facturacion_filtered['BEN1_70']['commission'] += row['asoavna_commission'] * row['quantity']
             elif row['tipo'] == 'BEN2_62':
-                facturacion_filtered['BEN2_62']['avna'] += row['subsidy'] * row['quantity']
-                facturacion_filtered['BEN2_62']['aseavna'] += row['employee_payment_base'] * row['quantity']
                 facturacion_filtered['BEN2_62']['count'] += row['quantity']
+                facturacion_filtered['BEN2_62']['subsidy'] += row['subsidy'] * row['quantity']
+                facturacion_filtered['BEN2_62']['employee_payment'] += row['employee_payment_base'] * row['quantity']
                 facturacion_filtered['BEN2_62']['iva'] += row['iva'] * row['quantity']
+                facturacion_filtered['BEN2_62']['commission'] += row['asoavna_commission'] * row['quantity']
             else:
-                facturacion_filtered['Otros']['avna'] += row['subsidy'] * row['quantity']
-                facturacion_filtered['Otros']['aseavna'] += row['employee_payment'] * row['quantity']
                 facturacion_filtered['Otros']['count'] += row['quantity']
+                facturacion_filtered['Otros']['subsidy'] += row['subsidy'] * row['quantity']
+                facturacion_filtered['Otros']['employee_payment'] += row['employee_payment'] * row['quantity']
                 facturacion_filtered['Otros']['iva'] += row['iva'] * row['quantity']
+                facturacion_filtered['Otros']['commission'] += row['asoavna_commission'] * row['quantity']
 
+        total_subsidy_filtered = facturacion_filtered['BEN1_70']['subsidy'] + facturacion_filtered['BEN2_62']['subsidy'] + facturacion_filtered['Otros']['subsidy']
+        total_employee_payment_filtered = facturacion_filtered['BEN1_70']['employee_payment'] + facturacion_filtered['BEN2_62']['employee_payment'] + facturacion_filtered['Otros']['employee_payment']
         total_iva_filtered = facturacion_filtered['BEN1_70']['iva'] + facturacion_filtered['BEN2_62']['iva'] + facturacion_filtered['Otros']['iva']
-        non_subsidized_iva = filtered_comisiones['iva'].sum()
-        total_facturar_aseavna = (facturacion_filtered['BEN1_70']['aseavna'] +
-                                 facturacion_filtered['BEN2_62']['aseavna'] +
-                                 facturacion_filtered['Otros']['aseavna'] +
-                                 total_commission_filtered +
-                                 total_iva_filtered +
-                                 non_subsidized_iva)
+        total_commission_subsidized_filtered = facturacion_filtered['BEN1_70']['commission'] + facturacion_filtered['BEN2_62']['commission'] + facturacion_filtered['Otros']['commission']
 
+        # Calcular comisiones no subsidiadas para datos filtrados
+        filtered_comisiones_df, total_commission_non_subsidized_filtered = ReporteVentas(filtered_data, user_df, st.session_state.iva_rate).comisiones_no_subsidiadas
+        non_subsidized_iva = filtered_comisiones_df['iva'].sum()
+
+        # Calcular totales
+        total_ben1_filtered = facturacion_filtered['BEN1_70']['subsidy'] + facturacion_filtered['BEN1_70']['employee_payment']
+        total_ben2_filtered = facturacion_filtered['BEN2_62']['subsidy'] + facturacion_filtered['BEN2_62']['employee_payment']
+        subsidy_percentage_ben1_filtered = (facturacion_filtered['BEN1_70']['subsidy'] / total_ben1_filtered * 100) if total_ben1_filtered > 0 else 0
+        subsidy_percentage_ben2_filtered = (facturacion_filtered['BEN2_62']['subsidy'] / total_ben2_filtered * 100) if total_ben2_filtered > 0 else 0
+
+        # Crear tabla de facturación
         facturacion_df = pd.DataFrame([
-            {'Concepto': 'Facturar a AVNA (BEN1_70)', 'Monto': format_number(facturacion_filtered['BEN1_70']['avna']), 'Transacciones': facturacion_filtered['BEN1_70']['count']},
-            {'Concepto': 'Diferencia a Aseavna (BEN1_70)', 'Monto': format_number(facturacion_filtered['BEN1_70']['aseavna']), 'Transacciones': facturacion_filtered['BEN1_70']['count']},
-            {'Concepto': 'Facturar a AVNA (BEN2_62)', 'Monto': format_number(facturacion_filtered['BEN2_62']['avna']), 'Transacciones': facturacion_filtered['BEN2_62']['count']},
-            {'Concepto': 'Diferencia a Aseavna (BEN2_62)', 'Monto': format_number(facturacion_filtered['BEN2_62']['aseavna']), 'Transacciones': facturacion_filtered['BEN2_62']['count']},
-            {'Concepto': 'Facturar a AVNA (Otros)', 'Monto': format_number(facturacion_filtered['Otros']['avna']), 'Transacciones': facturacion_filtered['Otros']['count']},
-            {'Concepto': 'Diferencia a Aseavna (Otros)', 'Monto': format_number(facturacion_filtered['Otros']['aseavna']), 'Transacciones': facturacion_filtered['Otros']['count']},
-            {'Concepto': 'Comisión Aseavna (Total por Transacciones)', 'Monto': format_number(total_commission_filtered), 'Transacciones': ''},
-            {'Concepto': 'IVA', 'Monto': format_number(total_iva_filtered + non_subsidized_iva), 'Transacciones': ''},
-            {'Concepto': 'Total a Facturar a Aseavna', 'Monto': format_number(total_facturar_aseavna), 'Transacciones': ''}
+            {'': 'Subsidio', 'BEN1_70 Con 5% para ASOANVA': 2100 if facturacion_filtered['BEN1_70']['count'] > 0 else 0, 'BEN2_62 Con 5% para ASOANVA': 1800 if facturacion_filtered['BEN2_62']['count'] > 0 else 0},
+            {'': 'Diferencia', 'BEN1_70 Con 5% para ASOANVA': 1000 if facturacion_filtered['BEN1_70']['count'] > 0 else 0, 'BEN2_62 Con 5% para ASOANVA': 1300 if facturacion_filtered['BEN2_62']['count'] > 0 else 0},
+            {'': 'Iva', 'BEN1_70 Con 5% para ASOANVA': facturacion_filtered['BEN1_70']['iva'], 'BEN2_62 Con 5% para ASOANVA': facturacion_filtered['BEN2_62']['iva']},
+            {'': 'PAGAR a colaborador', 'BEN1_70 Con 5% para ASOANVA': 1000 if facturacion_filtered['BEN1_70']['count'] > 0 else 0, 'BEN2_62 Con 5% para ASOANVA': 1300 if facturacion_filtered['BEN2_62']['count'] > 0 else 0},
+            {'': 'Precio con iva', 'BEN1_70 Con 5% para ASOANVA': 3100 if facturacion_filtered['BEN1_70']['count'] > 0 else 0, 'BEN2_62 Con 5% para ASOANVA': 3100 if facturacion_filtered['BEN2_62']['count'] > 0 else 0},
+            {'': '% Subsidio', 'BEN1_70 Con 5% para ASOANVA': f"{subsidy_percentage_ben1_filtered:.2f}%", 'BEN2_62 Con 5% para ASOANVA': f"{subsidy_percentage_ben2_filtered:.2f}%"},
+            {'': 'Facturar a AVNA', 'BEN1_70 Con 5% para ASOANVA': facturacion_filtered['BEN1_70']['subsidy'], 'BEN2_62 Con 5% para ASOANVA': facturacion_filtered['BEN2_62']['subsidy']},
+            {'': 'Monto a cobrar al trabajador', 'BEN1_70 Con 5% para ASOANVA': facturacion_filtered['BEN1_70']['employee_payment'], 'BEN2_62 Con 5% para ASOANVA': facturacion_filtered['BEN2_62']['employee_payment']},
+            {'': 'Total', 'BEN1_70 Con 5% para ASOANVA': total_ben1_filtered, 'BEN2_62 Con 5% para ASOANVA': total_ben2_filtered},
+            {'': 'Aseavna colones', 'BEN1_70 Con 5% para ASOANVA': 155 if facturacion_filtered['BEN1_70']['count'] > 0 else 0, 'BEN2_62 Con 5% para ASOANVA': 150 if facturacion_filtered['BEN2_62']['count'] > 0 else 0},
+            {'': 'Aseavna %', 'BEN1_70 Con 5% para ASOANVA': '5,0%' if facturacion_filtered['BEN1_70']['count'] > 0 else '0,0%', 'BEN2_62 Con 5% para ASOANVA': '5,0%' if facturacion_filtered['BEN2_62']['count'] > 0 else '0,0%'},
         ])
+
+        # Añadir columna Total
+        facturacion_df['Total'] = facturacion_df.apply(lambda row: (row['BEN1_70 Con 5% para ASOANVA'] + row['BEN2_62 Con 5% para ASOANVA']) if isinstance(row['BEN1_70 Con 5% para ASOANVA'], (int, float)) else '', axis=1)
+
+        # Añadir conteo de transacciones
+        facturacion_df.loc[facturacion_df[''] == 'Total', 'BEN1_70 Con 5% para ASOANVA'] = facturacion_filtered['BEN1_70']['count']
+        facturacion_df.loc[facturacion_df[''] == 'Total', 'BEN2_62 Con 5% para ASOANVA'] = facturacion_filtered['BEN2_62']['count']
+        facturacion_df.loc[facturacion_df[''] == 'Total', 'Total'] = facturacion_filtered['BEN1_70']['count'] + facturacion_filtered['BEN2_62']['count']
+
         st.dataframe(facturacion_df, use_container_width=True)
+
+        # Facturación adicional
+        total_facturar_avna = total_subsidy_filtered
+        total_aseavna_recoleta = total_employee_payment_filtered + filtered_comisiones_df['total'].sum()
+        total_aseavna_5percent = total_commission_non_subsidized_filtered
+        total_facturar_aseavna = total_aseavna_recoleta - total_aseavna_5percent
+        total_aseavna_5percent_subsidized = total_commission_subsidized_filtered
+        total_facturar_aseavna_final = total_aseavna_recoleta - total_aseavna_5percent_subsidized
+
+        facturacion_adicional_df = pd.DataFrame([
+            {'': 'Facturar a AVNA y pagar Avna', 'BEN1_70': format_number(facturacion_filtered['BEN1_70']['subsidy']), 'BEN2_62': format_number(facturacion_filtered['BEN2_62']['subsidy']), 'Total': format_number(total_facturar_avna)},
+            {'': 'Aseavna recoleta', 'BEN1_70': format_number(facturacion_filtered['BEN1_70']['employee_payment']), 'BEN2_62': format_number(facturacion_filtered['BEN2_62']['employee_payment']), 'Total': format_number(total_aseavna_recoleta)},
+            {'': 'Aseavna 5%', 'BEN1_70': format_number(0), 'BEN2_62': format_number(0), 'Total': format_number(total_aseavna_5percent)},
+            {'': 'Facturar a ASEAVNA y pagarASEAVNA', 'BEN1_70': format_number(facturacion_filtered['BEN1_70']['employee_payment']), 'BEN2_62': format_number(facturacion_filtered['BEN2_62']['employee_payment']), 'Total': format_number(total_facturar_aseavna)},
+            {'': 'Aseavna 5%', 'BEN1_70': format_number(facturacion_filtered['BEN1_70']['commission']), 'BEN2_62': format_number(facturacion_filtered['BEN2_62']['commission']), 'Total': format_number(total_aseavna_5percent_subsidized)},
+            {'': 'Facturar a ASEAVNA y pagarASEAVNA', 'BEN1_70': format_number(facturacion_filtered['BEN1_70']['employee_payment'] - facturacion_filtered['BEN1_70']['commission']), 'BEN2_62': format_number(facturacion_filtered['BEN2_62']['employee_payment'] - facturacion_filtered['BEN2_62']['commission']), 'Total': format_number(total_facturar_aseavna_final)},
+        ])
+        st.dataframe(facturacion_adicional_df, use_container_width=True)
 
     # Pestaña de Gráficos
     with tabs[2]:
@@ -665,72 +765,13 @@ def main():
             else:
                 st.write("No hay datos para mostrar con los filtros actuales.")
 
-    # Pestaña de Historial de Consumo
+    # Pestaña de Historial de Consumo (Etiquetas de la fila)
     with tabs[3]:
-        st.header("Historial de Consumo por Contacto")
-        rows_per_page = 50
-        total_pages = (len(filtered_data) + rows_per_page - 1) // rows_per_page
-        st.session_state.current_page = max(1, min(st.session_state.current_page, total_pages))
-
-        start_idx = (st.session_state.current_page - 1) * rows_per_page
-        end_idx = min(start_idx + rows_per_page, len(filtered_data))
-        paginated_data = filtered_data.iloc[start_idx:end_idx].copy()
-        paginated_data['date'] = paginated_data['date'].dt.strftime('%Y-%m-%d')
-        paginated_data['total'] = paginated_data['total'].apply(format_number)
-        paginated_data['subsidy'] = paginated_data['subsidy'].apply(format_number)
-        paginated_data['employee_payment'] = paginated_data['employee_payment'].apply(format_number)
-        paginated_data['asoavna_commission'] = (paginated_data['asoavna_commission'] * paginated_data['quantity']).apply(format_number)
-        paginated_data['iva'] = (paginated_data['iva'] * paginated_data['quantity']).apply(format_number)
-        paginated_data['client_credit'] = paginated_data['client_credit'].apply(format_number)
-        paginated_data['aseavna_account'] = paginated_data['aseavna_account'].apply(format_number)
-
-        sort_options = {
-            'Cliente': 'display_name',
-            'Nombre Vinculado': 'name',
-            'Cédula': 'cedula',
-            'Puesto': 'position',
-            'Tipo': 'tipo',
-            'Fecha': 'date',
-            'Producto': 'product',
-            'Cantidad': 'quantity',
-            'Total': 'total',
-            'Subsidio': 'subsidy',
-            'Pago Empleado': 'employee_payment',
-            'Centro de Costos': 'cost_center',
-            'Crédito Cliente': 'client_credit',
-            'Cuenta Aseavna': 'aseavna_account',
-            'Comisión Aseavna': 'asoavna_commission',
-            'IVA': 'iva'
-        }
-        col_sort = st.columns(2)
-        with col_sort[0]:
-            sort_by = st.selectbox("Ordenar por", list(sort_options.keys()))
-        with col_sort[1]:
-            direction = st.selectbox("Dirección", ['Ascendente', 'Descendente'])
-        
-        if sort_by != [k for k, v in sort_options.items() if v == st.session_state.sort_key][0] or \
-           direction != ('Ascendente' if st.session_state.sort_direction == 'asc' else 'Descendente'):
-            st.session_state.sort_key = sort_options[sort_by]
-            st.session_state.sort_direction = 'asc' if direction == 'Ascendente' else 'desc'
-            st.rerun()
-
-        st.dataframe(paginated_data[[
-            'display_name', 'name', 'cedula', 'position', 'tipo', 'date', 'product',
-            'quantity', 'total', 'subsidy', 'employee_payment', 'cost_center',
-            'is_subsidized', 'client_credit', 'aseavna_account', 'asoavna_commission', 'iva'
-        ]], use_container_width=True)
-
-        col_pagination = st.columns(3)
-        with col_pagination[0]:
-            if st.button("Anterior"):
-                st.session_state.current_page = max(1, st.session_state.current_page - 1)
-                st.rerun()
-        with col_pagination[1]:
-            st.write(f"Página {st.session_state.current_page} de {total_pages}")
-        with col_pagination[2]:
-            if st.button("Siguiente"):
-                st.session_state.current_page = min(total_pages, st.session_state.current_page + 1)
-                st.rerun()
+        st.header("Historial de Consumo por Contacto (Etiquetas de la fila)")
+        display_etiquetas = filtered_etiquetas.copy()
+        display_etiquetas['Suma de Monto Cliente'] = display_etiquetas['Suma de Monto Cliente'].apply(lambda x: format_number(x) if isinstance(x, (int, float)) else x)
+        display_etiquetas['Suma de Monto Subsidiado'] = display_etiquetas['Suma de Monto Subsidiado'].apply(lambda x: format_number(x) if isinstance(x, (int, float)) else x)
+        st.dataframe(display_etiquetas, use_container_width=True)
 
     # Pestaña de Reporte Individual
     with tabs[4]:
@@ -828,26 +869,18 @@ def main():
                     summary_data.to_excel(writer, sheet_name='Resumen', index=False)
 
                     if st.session_state.export_options['consumption_table']:
-                        export_df = filtered_data[['display_name', 'name', 'cedula', 'position', 'tipo', 'date', 'product', 'quantity', 'total', 'subsidy', 'employee_payment', 'cost_center', 'is_subsidized', 'client_credit', 'aseavna_account', 'asoavna_commission', 'iva']]
-                        export_df.to_excel(writer, sheet_name='Consumo', index=False)
+                        export_etiquetas = filtered_etiquetas.copy()
+                        export_etiquetas.to_excel(writer, sheet_name='Consumo', index=False)
 
                     if st.session_state.export_options['facturacion_table']:
-                        facturacion_data = pd.DataFrame([
-                            ['Facturar a AVNA (BEN1_70)', format_number(facturacion_filtered['BEN1_70']['avna']), facturacion_filtered['BEN1_70']['count']],
-                            ['Diferencia a Aseavna (BEN1_70)', format_number(facturacion_filtered['BEN1_70']['aseavna']), facturacion_filtered['BEN1_70']['count']],
-                            ['Facturar a AVNA (BEN2_62)', format_number(facturacion_filtered['BEN2_62']['avna']), facturacion_filtered['BEN2_62']['count']],
-                            ['Diferencia a Aseavna (BEN2_62)', format_number(facturacion_filtered['BEN2_62']['aseavna']), facturacion_filtered['BEN2_62']['count']],
-                            ['Facturar a AVNA (Otros)', format_number(facturacion_filtered['Otros']['avna']), facturacion_filtered['Otros']['count']],
-                            ['Diferencia a Aseavna (Otros)', format_number(facturacion_filtered['Otros']['aseavna']), facturacion_filtered['Otros']['count']],
-                            ['Comisión Aseavna (Total por Transacciones)', format_number(total_commission_filtered), ''],
-                            ['IVA', format_number(total_iva_filtered + non_subsidized_iva), ''],
-                            ['Total a Facturar a Aseavna', format_number(total_facturar_aseavna), '']
-                        ], columns=['Concepto', 'Monto', 'Transacciones'])
+                        facturacion_data = pd.concat([facturacion_df, facturacion_adicional_df], ignore_index=True)
                         facturacion_data.to_excel(writer, sheet_name='Facturación', index=False)
 
                     if st.session_state.export_options['individual_report']:
                         for client, datos in reportes_individuales.items():
-                            client_df = datos['transacciones'][['date', 'product', 'quantity', 'total', 'subsidy', 'employee_payment', 'asoavna_commission', 'client_credit', 'aseavna_account', 'iva']]
+                            client_df = datos['transacciones'][ •
+
+['date', 'product', 'quantity', 'total', 'subsidy', 'employee_payment', 'asoavna_commission', 'client_credit', 'aseavna_account', 'iva']]
                             client_df.to_excel(writer, sheet_name=f'Cliente_{client[:20]}', index=False)
 
                     if st.session_state.export_options['non_subsidized_commissions']:
@@ -864,7 +897,7 @@ def main():
 
         with col_btn[1]:
             if st.button("Exportar a CSV"):
-                export_df = filtered_data[['display_name', 'name', 'cedula', 'position', 'tipo', 'date', 'product', 'quantity', 'total', 'subsidy', 'employee_payment', 'cost_center', 'is_subsidized', 'client_credit', 'aseavna_account', 'asoavna_commission', 'iva']]
+                export_df = filtered_etiquetas.copy()
                 csv = export_df.to_csv(index=False)
                 st.download_button(
                     label="Descargar CSV",

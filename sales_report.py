@@ -109,22 +109,22 @@ class Venta:
                 self.subsidy = 2100
                 self.employee_payment = 1000
                 self.employee_payment_base = self.employee_payment / iva_factor
-                self.asoavna_commission = 155
+                self.asoavna_commission = 150  # Fixed commission as specified
             elif self.tipo == 'BEN2_62':
                 self.subsidy = 1800
                 self.employee_payment = 1300
                 self.employee_payment_base = self.employee_payment / iva_factor
-                self.asoavna_commission = 150
+                self.asoavna_commission = 150  # Fixed commission as specified
             else:
                 self.subsidy = 0
                 self.employee_payment = self.total
                 self.employee_payment_base = self.base_price
-                self.asoavna_commission = self.total * 0.05
+                self.asoavna_commission = 150  # Fixed commission for subsidized product
         else:
             self.subsidy = 0
             self.employee_payment = self.total
             self.employee_payment_base = self.base_price
-            self.asoavna_commission = self.total * 0.05
+            self.asoavna_commission = self.total * 0.05  # 5% commission for non-subsidized products
 
         self.client_credit = self.employee_payment
         self.aseavna_account = self.subsidy
@@ -171,6 +171,8 @@ class ReporteVentas:
         self.reportes_individuales = self._generar_reportes_individuales()
 
     def _procesar_contactos(self, user_df):
+        if user_df.empty:
+            return {}
         required_columns = ['Nombre', 'Cédula', 'Puesto', 'Tipo']
         missing_columns = [col for col in required_columns if col not in user_df.columns]
         if missing_columns:
@@ -184,6 +186,8 @@ class ReporteVentas:
         return contactos
 
     def _procesar_ventas(self, sales_df):
+        if sales_df.empty:
+            return []
         required_columns = ['Cliente', 'Empresa', 'Fecha de la orden', 'Orden', 'Cant. ordenada', 'Precio unitario', 'Total', 'Variante del producto', 'Vendedor']
         missing_columns = [col for col in required_columns if col not in sales_df.columns]
         if missing_columns:
@@ -219,6 +223,8 @@ class ReporteVentas:
 
     def _crear_dataframe(self):
         datos = [venta.to_dict() for venta in self.ventas]
+        if not datos:
+            return pd.DataFrame(columns=['client', 'display_name', 'name', 'company', 'date', 'order', 'quantity', 'unit_price', 'total', 'base_price', 'product', 'seller', 'cedula', 'position', 'tipo', 'cost_center', 'is_subsidized', 'subsidy', 'employee_payment', 'employee_payment_base', 'asoavna_commission', 'iva', 'client_credit', 'aseavna_account'])
         df = pd.DataFrame(datos)
         df['key'] = df['order'] + '-' + df['client'] + '-' + df['product']
         df = df.drop_duplicates(subset='key').drop(columns='key')
@@ -227,6 +233,9 @@ class ReporteVentas:
     def _generar_etiquetas_fila(self, df=None):
         if df is None:
             df = self.datos.copy()
+        if df.empty:
+            return pd.DataFrame(columns=['Empleado', 'Producto', 'Suma de Cant. ordenada', 'Suma de Monto Cliente', 'Suma de Monto Subsidiado'])
+
         grouped = df.groupby(['client', 'display_name', 'tipo', 'product']).agg({
             'quantity': 'sum',
             'client_credit': 'sum',
@@ -281,6 +290,22 @@ class ReporteVentas:
 
     def _calcular_facturacion(self):
         df = self.datos
+        if df.empty:
+            return {
+                'facturacion': {
+                    'BEN1_70': {'count': 0, 'subsidy': 0, 'employee_payment': 0, 'iva': 0, 'commission': 0},
+                    'BEN2_62': {'count': 0, 'subsidy': 0, 'employee_payment': 0, 'iva': 0, 'commission': 0},
+                    'Otros': {'count': 0, 'subsidy': 0, 'employee_payment': 0, 'iva': 0, 'commission': 0}
+                },
+                'subsidy_percentage_ben1': 0,
+                'subsidy_percentage_ben2': 0,
+                'total_subsidy': 0,
+                'total_employee_payment': 0,
+                'total_iva': 0,
+                'total_commission': 0,
+                'total_commission_subsidized': 0
+            }
+
         facturacion = {
             'BEN1_70': {'count': 0, 'subsidy': 0, 'employee_payment': 0, 'iva': 0, 'commission': 0},
             'BEN2_62': {'count': 0, 'subsidy': 0, 'employee_payment': 0, 'iva': 0, 'commission': 0},
@@ -334,6 +359,9 @@ class ReporteVentas:
 
     def _calcular_comisiones_no_subsidiadas(self):
         df = self.datos
+        if df.empty:
+            return pd.DataFrame(columns=['client', 'display_name', 'product', 'total', 'base_price', 'asoavna_commission', 'iva']), 0
+
         comisiones = []
         total_commission_non_subsidized = 0
         for _, row in df.iterrows():
@@ -353,6 +381,9 @@ class ReporteVentas:
 
     def _generar_reportes_individuales(self):
         df = self.datos
+        if df.empty or 'client' not in df.columns:
+            return {}
+        
         reportes = {}
         for client, group in df.groupby('client'):
             total_client_credit = (group['client_credit'] * group['quantity']).sum()
@@ -369,6 +400,15 @@ class ReporteVentas:
         return reportes
 
     def aggregate_data(self, filtered_df):
+        if filtered_df.empty:
+            return {
+                'revenue_by_client': {},
+                'sales_by_date': {},
+                'product_distribution': {},
+                'consumption_by_contact': {},
+                'cost_breakdown_by_tipo': pd.DataFrame(columns=['tipo', 'subsidy', 'employee_payment', 'count'])
+            }
+
         revenue_by_client = (filtered_df.groupby('display_name')
                             .agg({'total': 'sum', 'quantity': 'sum'})
                             .apply(lambda x: x['total'] * x['quantity'], axis=1)
@@ -427,7 +467,8 @@ def main():
         st.session_state.logged_in = False
 
     st.title("Sistema de Reportes de Ventas - ASEAVNA")
-    st.markdown("**Generado el 19 de abril de 2025 para C2-ASEAVNA, Grecia, Costa Rica**")
+    current_date = datetime.now().strftime('%d de %B de %Y')
+    st.markdown(f"**Generado el {current_date} para C2-ASEAVNA, Grecia, Costa Rica**")
     st.markdown("Sistema profesional para la gestión de ventas, subsidios y comisiones.")
 
     tabs = st.tabs(["Login", "Facturación", "Gráficos", "Historial de Consumo", "Reporte Individual", "Comisiones No Subsidiadas"])
@@ -510,9 +551,9 @@ def main():
     if 'selected_tipo' not in st.session_state:
         st.session_state.selected_tipo = 'All'
     if 'date_range_start' not in st.session_state:
-        st.session_state.date_range_start = sales_data['date'].min().date()
+        st.session_state.date_range_start = sales_data['date'].min().date() if not sales_data.empty else datetime.today().date()
     if 'date_range_end' not in st.session_state:
-        st.session_state.date_range_end = sales_data['date'].max().date()
+        st.session_state.date_range_end = sales_data['date'].max().date() if not sales_data.empty else datetime.today().date()
     if 'search_query' not in st.session_state:
         st.session_state.search_query = ''
     if 'selected_cost_center' not in st.session_state:
@@ -576,10 +617,11 @@ def main():
         {'client': k, 'revenue': v} for k, v in aggregated['revenue_by_client'].items()
     ])
     total_revenue = revenue_chart_data['revenue'].sum() if not revenue_chart_data.empty else 0
-    revenue_chart_data['percentage'] = (revenue_chart_data['revenue'] / total_revenue * 100).round(1) if total_revenue > 0 else 0
-    revenue_chart_data['client'] = revenue_chart_data['client'].apply(
-        lambda x: x[:17] + '...' if len(x) > 20 else x
-    )
+    if not revenue_chart_data.empty:
+        revenue_chart_data['percentage'] = (revenue_chart_data['revenue'] / total_revenue * 100).round(1) if total_revenue > 0 else 0
+        revenue_chart_data['client'] = revenue_chart_data['client'].apply(
+            lambda x: x[:17] + '...' if len(x) > 20 else x
+        )
 
     sales_trend_data = pd.DataFrame([
         {'date': k, 'revenue': v} for k, v in aggregated['sales_by_date'].items()
@@ -598,23 +640,23 @@ def main():
         st.header("Filtros de Reporte")
         col1, col2, col3, col4, col5 = st.columns(5)
         with col1:
-            unique_tipos = ['All'] + sorted(sales_data['tipo'].unique())
+            unique_tipos = ['All'] + sorted(sales_data['tipo'].unique()) if not sales_data.empty else ['All']
             selected_tipo = st.selectbox("Tipo", unique_tipos, index=unique_tipos.index(st.session_state.selected_tipo), key="tipo_filter")
         with col2:
             start_date, end_date = st.date_input(
                 "Rango de Fechas",
                 [st.session_state.date_range_start, st.session_state.date_range_end],
-                min_value=sales_data['date'].min().date(),
-                max_value=sales_data['date'].max().date(),
+                min_value=sales_data['date'].min().date() if not sales_data.empty else datetime.today().date(),
+                max_value=sales_data['date'].max().date() if not sales_data.empty else datetime.today().date(),
                 key="date_filter"
             )
         with col3:
             search_query = st.text_input("Buscar Cliente o Cédula", value=st.session_state.search_query, key="search_filter")
         with col4:
-            unique_cost_centers = ['All'] + sorted(sales_data['cost_center'].unique())
+            unique_cost_centers = ['All'] + sorted(sales_data['cost_center'].unique()) if not sales_data.empty else ['All']
             selected_cost_center = st.selectbox("Centro de Costos", unique_cost_centers, index=unique_cost_centers.index(st.session_state.selected_cost_center), key="cost_center_filter")
         with col5:
-            unique_clients = ['All'] + sorted(sales_data['client'].unique())
+            unique_clients = ['All'] + sorted(sales_data['client'].unique()) if not sales_data.empty else ['All']
             selected_client = st.selectbox("Cliente", unique_clients, index=unique_clients.index(st.session_state.selected_client) if st.session_state.selected_client in unique_clients else 0, key="client_filter")
 
         if (selected_tipo != st.session_state.selected_tipo or
@@ -634,8 +676,8 @@ def main():
 
         if st.button("Restablecer Filtros"):
             st.session_state.selected_tipo = 'All'
-            st.session_state.date_range_start = sales_data['date'].min().date()
-            st.session_state.date_range_end = sales_data['date'].max().date()
+            st.session_state.date_range_start = sales_data['date'].min().date() if not sales_data.empty else datetime.today().date()
+            st.session_state.date_range_end = sales_data['date'].max().date() if not sales_data.empty else datetime.today().date()
             st.session_state.search_query = ''
             st.session_state.selected_cost_center = 'All'
             st.session_state.selected_client = 'All'
@@ -713,7 +755,7 @@ def main():
             {'': 'Facturar a AVNA', 'BEN1_70 Con 5% para ASOANVA': facturacion_filtered['BEN1_70']['subsidy'], 'BEN2_62 Con 5% para ASOANVA': facturacion_filtered['BEN2_62']['subsidy']},
             {'': 'Monto a cobrar al trabajador', 'BEN1_70 Con 5% para ASOANVA': facturacion_filtered['BEN1_70']['employee_payment'], 'BEN2_62 Con 5% para ASOANVA': facturacion_filtered['BEN2_62']['employee_payment']},
             {'': 'Total', 'BEN1_70 Con 5% para ASOANVA': facturacion_filtered['BEN1_70']['count'], 'BEN2_62 Con 5% para ASOANVA': facturacion_filtered['BEN2_62']['count']},
-            {'': 'Aseavna colones', 'BEN1_70 Con 5% para ASOANVA': 155 if facturacion_filtered['BEN1_70']['count'] > 0 else 0, 'BEN2_62 Con 5% para ASOANVA': 150 if facturacion_filtered['BEN2_62']['count'] > 0 else 0},
+            {'': 'Aseavna colones', 'BEN1_70 Con 5% para ASOANVA': 150 if facturacion_filtered['BEN1_70']['count'] > 0 else 0, 'BEN2_62 Con 5% para ASOANVA': 150 if facturacion_filtered['BEN2_62']['count'] > 0 else 0},
             {'': 'Aseavna %', 'BEN1_70 Con 5% para ASOANVA': '5,0%' if facturacion_filtered['BEN1_70']['count'] > 0 else '0,0%', 'BEN2_62 Con 5% para ASOANVA': '5,0%' if facturacion_filtered['BEN2_62']['count'] > 0 else '0,0%'},
         ])
 
@@ -803,7 +845,7 @@ def main():
         if st.session_state.selected_client != 'All':
             client_data = reportes_individuales.get(st.session_state.selected_client, None)
             if client_data:
-                client_display_name = client_data['transacciones']['display_name'].iloc[0]
+                client_display_name = client_data['transacciones']['display_name'].iloc[0] if not client_data['transacciones'].empty else "Desconocido"
                 st.subheader(f"Reporte para: {client_display_name}")
                 col_client = st.columns(2)
                 with col_client[0]:
@@ -813,27 +855,33 @@ def main():
 
                 st.subheader("Transacciones Subsidiadas (Almuerzo Ejecutivo Aseavna)")
                 subsidized_df = client_data['subsidized'][['date', 'product', 'quantity', 'total', 'subsidy', 'employee_payment', 'asoavna_commission', 'client_credit', 'aseavna_account', 'iva']]
-                subsidized_df['date'] = subsidized_df['date'].dt.strftime('%Y-%m-%d')
-                subsidized_df['total'] = subsidized_df['total'].apply(format_number)
-                subsidized_df['subsidy'] = subsidized_df['subsidy'].apply(format_number)
-                subsidized_df['employee_payment'] = subsidized_df['employee_payment'].apply(format_number)
-                subsidized_df['asoavna_commission'] = (subsidized_df['asoavna_commission'] * subsidized_df['quantity']).apply(format_number)
-                subsidized_df['client_credit'] = subsidized_df['client_credit'].apply(format_number)
-                subsidized_df['aseavna_account'] = subsidized_df['aseavna_account'].apply(format_number)
-                subsidized_df['iva'] = (subsidized_df['iva'] * subsidized_df['quantity']).apply(format_number)
-                st.dataframe(subsidized_df, use_container_width=True)
+                if not subsidized_df.empty:
+                    subsidized_df['date'] = subsidized_df['date'].dt.strftime('%Y-%m-%d')
+                    subsidized_df['total'] = subsidized_df['total'].apply(format_number)
+                    subsidized_df['subsidy'] = subsidized_df['subsidy'].apply(format_number)
+                    subsidized_df['employee_payment'] = subsidized_df['employee_payment'].apply(format_number)
+                    subsidized_df['asoavna_commission'] = (subsidized_df['asoavna_commission'] * subsidized_df['quantity']).apply(format_number)
+                    subsidized_df['client_credit'] = subsidized_df['client_credit'].apply(format_number)
+                    subsidized_df['aseavna_account'] = subsidized_df['aseavna_account'].apply(format_number)
+                    subsidized_df['iva'] = (subsidized_df['iva'] * subsidized_df['quantity']).apply(format_number)
+                    st.dataframe(subsidized_df, use_container_width=True)
+                else:
+                    st.write("No hay transacciones subsidiadas para este cliente.")
 
                 st.subheader("Transacciones No Subsidiadas")
                 non_subsidized_df = client_data['non_subsidized'][['date', 'product', 'quantity', 'total', 'subsidy', 'employee_payment', 'asoavna_commission', 'client_credit', 'aseavna_account', 'iva']]
-                non_subsidized_df['date'] = non_subsidized_df['date'].dt.strftime('%Y-%m-%d')
-                non_subsidized_df['total'] = non_subsidized_df['total'].apply(format_number)
-                non_subsidized_df['subsidy'] = non_subsidized_df['subsidy'].apply(format_number)
-                non_subsidized_df['employee_payment'] = non_subsidized_df['employee_payment'].apply(format_number)
-                non_subsidized_df['asoavna_commission'] = (non_subsidized_df['asoavna_commission'] * non_subsidized_df['quantity']).apply(format_number)
-                non_subsidized_df['client_credit'] = non_subsidized_df['client_credit'].apply(format_number)
-                non_subsidized_df['aseavna_account'] = non_subsidized_df['aseavna_account'].apply(format_number)
-                non_subsidized_df['iva'] = (non_subsidized_df['iva'] * non_subsidized_df['quantity']).apply(format_number)
-                st.dataframe(non_subsidized_df, use_container_width=True)
+                if not non_subsidized_df.empty:
+                    non_subsidized_df['date'] = non_subsidized_df['date'].dt.strftime('%Y-%m-%d')
+                    non_subsidized_df['total'] = non_subsidized_df['total'].apply(format_number)
+                    non_subsidized_df['subsidy'] = non_subsidized_df['subsidy'].apply(format_number)
+                    non_subsidized_df['employee_payment'] = non_subsidized_df['employee_payment'].apply(format_number)
+                    non_subsidized_df['asoavna_commission'] = (non_subsidized_df['asoavna_commission'] * non_subsidized_df['quantity']).apply(format_number)
+                    non_subsidized_df['client_credit'] = non_subsidized_df['client_credit'].apply(format_number)
+                    non_subsidized_df['aseavna_account'] = non_subsidized_df['aseavna_account'].apply(format_number)
+                    non_subsidized_df['iva'] = (non_subsidized_df['iva'] * non_subsidized_df['quantity']).apply(format_number)
+                    st.dataframe(non_subsidized_df, use_container_width=True)
+                else:
+                    st.write("No hay transacciones no subsidiadas para este cliente.")
             else:
                 st.write("No se encontraron datos para el cliente seleccionado.")
         else:
@@ -887,8 +935,8 @@ def main():
             if st.button("Exportar a Excel"):
                 buffer = BytesIO()
                 with pd.ExcelWriter(buffer, engine='xlsxwriter') as writer:
-                    total_revenue = (filtered_data['total'] * filtered_data['quantity']).sum()
-                    total_subsidies = (filtered_data['subsidy'] * filtered_data['quantity']).sum()
+                    total_revenue = (filtered_data['total'] * filtered_data['quantity']).sum() if not filtered_data.empty else 0
+                    total_subsidies = (filtered_data['subsidy'] * filtered_data['quantity']).sum() if not filtered_data.empty else 0
                     average_transaction = total_revenue / len(filtered_data) if len(filtered_data) > 0 else 0
                     summary_data = pd.DataFrame([
                         ['Métricas Principales', ''],
@@ -896,7 +944,7 @@ def main():
                         ['Subsidios Totales', format_number(total_subsidies)],
                         ['Transacción Promedio', format_number(average_transaction)],
                         ['Transacciones Totales', len(filtered_data)],
-                        ['Clientes Únicos', filtered_data['display_name'].nunique()]
+                        ['Clientes Únicos', filtered_data['display_name'].nunique() if not filtered_data.empty else 0]
                     ], columns=['Métrica', 'Valor'])
                     summary_data.to_excel(writer, sheet_name='Resumen', index=False)
 
@@ -968,7 +1016,7 @@ def main():
                     </head>
                     <body>
                         <h1>Sistema de Reportes de Ventas - ASEAVNA</h1>
-                        <p class='summary'>Generado el 19 de abril de 2025 para C2-ASEAVNA, Grecia, Costa Rica</p>
+                        <p class='summary'>Generado el {current_date} para C2-ASEAVNA, Grecia, Costa Rica</p>
                         <p class='summary'>Sistema profesional para la gestión de ventas, subsidios y comisiones.</p>
                     """
 

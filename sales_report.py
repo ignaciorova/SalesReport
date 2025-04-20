@@ -92,30 +92,39 @@ class Venta:
         self.aseavna_account = 0
 
     def aplicar_subsidios_y_comisiones(self):
-        # Comisión del 5% sobre el total de la venta (para todas las ventas)
-        self.asoavna_commission = self.total * 0.05
+        # Para todos los productos, el precio total incluye el 13% IVA
+        self.base_price = self.total / 1.13  # Precio sin IVA
+        self.iva_calculated = self.total - self.base_price  # IVA incluido en el precio
 
         if self.is_subsidized:
+            # Para Almuerzo Ejecutivo Aseavna, usamos los valores fijos de la tabla
             if self.tipo == 'BEN1_70':
                 self.subsidy = 2100
-                self.employee_payment = 1000
-                self.asoavna_contribution = 155
-                self.iva = 115  # IVA fijo según la tabla
+                self.employee_payment = 1000  # Incluye IVA
+                self.employee_payment_base = self.employee_payment / 1.13  # ≈ 884.96
+                self.iva = 115  # Valor fijo según la tabla
+                self.asoavna_contribution = 155  # 5% del precio total (3100 * 0.05)
             elif self.tipo == 'BEN2_62':
                 self.subsidy = 1800
-                self.employee_payment = 1300
-                self.asoavna_contribution = 155
-                self.iva = 150  # IVA fijo según la tabla
+                self.employee_payment = 1300  # Incluye IVA
+                self.employee_payment_base = self.employee_payment / 1.13  # ≈ 1150.44
+                self.iva = 150  # Valor fijo según la tabla
+                self.asoavna_contribution = 155  # 5% del precio total (3100 * 0.05)
             elif self.tipo in ['AVNA VISITAS', 'Contratista/Visitante', 'AVNA GB', 'AVNA ONBOARDING', 'Practicante']:
                 self.subsidy = self.total
                 self.employee_payment = 0
+                self.employee_payment_base = 0
                 self.asoavna_contribution = 0
                 self.iva = 0  # No se especifica IVA para estos tipos
+            self.asoavna_commission = 0  # No se aplica comisión adicional aquí, ya que la contribución es fija (155)
         else:
+            # Para productos no subsidiados (ej. frescos)
             self.subsidy = 0
             self.employee_payment = self.total
+            self.employee_payment_base = self.base_price
             self.asoavna_contribution = 0
-            self.iva = self.total * 0.13  # 13% IVA para productos no subsidiados
+            self.asoavna_commission = self.total * 0.05  # 5% del precio total (incluye IVA)
+            self.iva = self.iva_calculated  # IVA ya incluido en el precio
 
         self.client_credit = self.employee_payment
         self.aseavna_account = self.subsidy + self.asoavna_contribution + self.asoavna_commission
@@ -131,6 +140,7 @@ class Venta:
             'quantity': self.cantidad,
             'unit_price': self.precio_unitario,
             'total': self.total,
+            'base_price': self.base_price,
             'product': self.producto,
             'seller': self.vendedor,
             'cedula': self.cedula,
@@ -140,6 +150,7 @@ class Venta:
             'is_subsidized': self.is_subsidized,
             'subsidy': self.subsidy,
             'employee_payment': self.employee_payment,
+            'employee_payment_base': self.employee_payment_base,
             'asoavna_contribution': self.asoavna_contribution,
             'asoavna_commission': self.asoavna_commission,
             'iva': self.iva,
@@ -220,12 +231,12 @@ class ReporteVentas:
                 continue
             if row['tipo'] == 'BEN1_70':
                 facturacion['BEN1_70']['avna'] += row['subsidy'] * row['quantity']
-                facturacion['BEN1_70']['aseavna'] += (row['employee_payment'] - row['iva']) * row['quantity']  # Diferencia después de IVA
+                facturacion['BEN1_70']['aseavna'] += row['employee_payment_base'] * row['quantity']  # Diferencia sin IVA
                 facturacion['BEN1_70']['count'] += row['quantity']
                 facturacion['BEN1_70']['iva'] += row['iva'] * row['quantity']
             elif row['tipo'] == 'BEN2_62':
                 facturacion['BEN2_62']['avna'] += row['subsidy'] * row['quantity']
-                facturacion['BEN2_62']['aseavna'] += (row['employee_payment'] - row['iva']) * row['quantity']  # Diferencia después de IVA
+                facturacion['BEN2_62']['aseavna'] += row['employee_payment_base'] * row['quantity']  # Diferencia sin IVA
                 facturacion['BEN2_62']['count'] += row['quantity']
                 facturacion['BEN2_62']['iva'] += row['iva'] * row['quantity']
             else:
@@ -257,6 +268,7 @@ class ReporteVentas:
                     'display_name': row['display_name'],
                     'product': row['product'],
                     'total': row['total'] * row['quantity'],
+                    'base_price': row['base_price'] * row['quantity'],
                     'asoavna_commission': row['asoavna_commission'] * row['quantity'],
                     'iva': row['iva'] * row['quantity']
                 })
@@ -489,7 +501,7 @@ def main():
             unique_cost_centers = ['All'] + sorted(sales_data['cost_center'].unique())
             selected_cost_center = st.selectbox("Centro de Costos", unique_cost_centers, index=unique_cost_centers.index(st.session_state.selected_cost_center), key="cost_center_filter")
         with col5:
-            unique_clients = ['All'] + sorted(sales_data['display_name'].unique())
+            unique_clients = ['All'] + sorted(sales_data['client'].unique())  # Usar 'client' en lugar de 'display_name'
             selected_client = st.selectbox("Cliente", unique_clients, index=unique_clients.index(st.session_state.selected_client) if st.session_state.selected_client in unique_clients else 0, key="client_filter")
 
         # Forzar actualización de los filtros
@@ -504,8 +516,7 @@ def main():
             st.session_state.date_range_end = end_date
             st.session_state.search_query = search_query
             st.session_state.selected_cost_center = selected_cost_center
-            client_mapping = {row['display_name']: row['client'] for _, row in sales_data.iterrows()}
-            st.session_state.selected_client = client_mapping.get(selected_client, 'All')
+            st.session_state.selected_client = selected_client
             st.session_state.current_page = 1
             # Forzar recalcular datos filtrados
             filtered_data = sales_data.copy()
@@ -552,12 +563,12 @@ def main():
                 continue
             if row['tipo'] == 'BEN1_70':
                 facturacion_filtered['BEN1_70']['avna'] += row['subsidy'] * row['quantity']
-                facturacion_filtered['BEN1_70']['aseavna'] += (row['employee_payment'] - row['iva']) * row['quantity']
+                facturacion_filtered['BEN1_70']['aseavna'] += row['employee_payment_base'] * row['quantity']
                 facturacion_filtered['BEN1_70']['count'] += row['quantity']
                 facturacion_filtered['BEN1_70']['iva'] += row['iva'] * row['quantity']
             elif row['tipo'] == 'BEN2_62':
                 facturacion_filtered['BEN2_62']['avna'] += row['subsidy'] * row['quantity']
-                facturacion_filtered['BEN2_62']['aseavna'] += (row['employee_payment'] - row['iva']) * row['quantity']
+                facturacion_filtered['BEN2_62']['aseavna'] += row['employee_payment_base'] * row['quantity']
                 facturacion_filtered['BEN2_62']['count'] += row['quantity']
                 facturacion_filtered['BEN2_62']['iva'] += row['iva'] * row['quantity']
             else:
@@ -713,7 +724,8 @@ def main():
         if st.session_state.selected_client != 'All':
             client_data = reportes_individuales.get(st.session_state.selected_client, None)
             if client_data:
-                st.subheader(f"Reporte para: {client_data['transacciones']['display_name'].iloc[0]}")
+                client_display_name = client_data['transacciones']['display_name'].iloc[0]
+                st.subheader(f"Reporte para: {client_display_name}")
                 col_client = st.columns(2)
                 with col_client[0]:
                     st.metric("Total en Cuenta de Crédito del Cliente", format_number(client_data['total_client_credit']))
@@ -744,6 +756,8 @@ def main():
                 non_subsidized_df['aseavna_account'] = non_subsidized_df['aseavna_account'].apply(format_number)
                 non_subsidized_df['iva'] = (non_subsidized_df['iva'] * non_subsidized_df['quantity']).apply(format_number)
                 st.dataframe(non_subsidized_df, use_container_width=True)
+            else:
+                st.write("No se encontraron datos para el cliente seleccionado.")
         else:
             st.write("Selecciona un cliente para ver su reporte individual.")
 
@@ -754,6 +768,7 @@ def main():
         if not filtered_comisiones.empty:
             comisiones_display = filtered_comisiones.copy()
             comisiones_display['total'] = comisiones_display['total'].apply(format_number)
+            comisiones_display['base_price'] = comisiones_display['base_price'].apply(format_number)
             comisiones_display['asoavna_commission'] = comisiones_display['asoavna_commission'].apply(format_number)
             comisiones_display['iva'] = comisiones_display['iva'].apply(format_number)
             st.dataframe(comisiones_display, use_container_width=True)
@@ -824,7 +839,7 @@ def main():
                             client_df.to_excel(writer, sheet_name=f'Cliente_{client[:20]}', index=False)
 
                     if st.session_state.export_options['non_subsidized_commissions']:
-                        comisiones_df = filtered_comisiones[['display_name', 'product', 'total', 'asoavna_commission', 'iva']]
+                        comisiones_df = filtered_comisiones[['display_name', 'product', 'total', 'base_price', 'asoavna_commission', 'iva']]
                         comisiones_df.to_excel(writer, sheet_name='Comisiones_No_Subsidiadas', index=False)
 
                 buffer.seek(0)

@@ -521,9 +521,10 @@ def main():
         st.session_state.selected_client = 'All'
     if 'current_page' not in st.session_state:
         st.session_state.current_page = 1
-    # Forzar la inicialización de sort_key y sort_direction
-    st.session_state.sort_key = 'display_name'  # Forzar a 'display_name'
-    st.session_state.sort_direction = 'asc'  # Forzar a 'asc'
+    if 'sort_key' not in st.session_state:
+        st.session_state.sort_key = 'display_name'
+    if 'sort_direction' not in st.session_state:
+        st.session_state.sort_direction = 'asc'
     if 'export_options' not in st.session_state:
         st.session_state.export_options = {
             'revenue_chart': True,
@@ -535,6 +536,8 @@ def main():
             'individual_report': True,
             'non_subsidized_commissions': True
         }
+    if 'pdf_template' not in st.session_state:
+        st.session_state.pdf_template = 'Ventas'
 
     # Filtrar datos
     filtered_data = sales_data.copy()
@@ -561,19 +564,6 @@ def main():
 
     # Recalcular etiquetas_fila con datos filtrados
     filtered_etiquetas = reporte._generar_etiquetas_fila(filtered_data)
-
-    # Depuración
-    st.write(f"Debug - sort_key: {st.session_state.sort_key}")
-    st.write(f"Debug - filtered_data columns: {list(filtered_data.columns)}")
-    st.write(f"Debug - filtered_data shape: {filtered_data.shape}")
-
-    # Validar que sort_key sea una columna válida en filtered_data
-    if st.session_state.sort_key not in filtered_data.columns:
-        st.error(f"Error: La columna '{st.session_state.sort_key}' no existe en filtered_data. Columnas disponibles: {list(filtered_data.columns)}. Revirtiendo a 'display_name'.")
-        st.session_state.sort_key = 'display_name'
-        if 'display_name' not in filtered_data.columns:
-            st.error("Error crítico: La columna 'display_name' no está presente en filtered_data. Verifica los datos de entrada.")
-            return
 
     filtered_data = filtered_data.sort_values(
         by=st.session_state.sort_key,
@@ -722,16 +712,17 @@ def main():
             {'': '% Subsidio', 'BEN1_70 Con 5% para ASOANVA': f"{subsidy_percentage_ben1_filtered:.2f}%", 'BEN2_62 Con 5% para ASOANVA': f"{subsidy_percentage_ben2_filtered:.2f}%"},
             {'': 'Facturar a AVNA', 'BEN1_70 Con 5% para ASOANVA': facturacion_filtered['BEN1_70']['subsidy'], 'BEN2_62 Con 5% para ASOANVA': facturacion_filtered['BEN2_62']['subsidy']},
             {'': 'Monto a cobrar al trabajador', 'BEN1_70 Con 5% para ASOANVA': facturacion_filtered['BEN1_70']['employee_payment'], 'BEN2_62 Con 5% para ASOANVA': facturacion_filtered['BEN2_62']['employee_payment']},
-            {'': 'Total', 'BEN1_70 Con 5% para ASOANVA': total_ben1_filtered, 'BEN2_62 Con 5% para ASOANVA': total_ben2_filtered},
+            {'': 'Total', 'BEN1_70 Con 5% para ASOANVA': facturacion_filtered['BEN1_70']['count'], 'BEN2_62 Con 5% para ASOANVA': facturacion_filtered['BEN2_62']['count']},
             {'': 'Aseavna colones', 'BEN1_70 Con 5% para ASOANVA': 155 if facturacion_filtered['BEN1_70']['count'] > 0 else 0, 'BEN2_62 Con 5% para ASOANVA': 150 if facturacion_filtered['BEN2_62']['count'] > 0 else 0},
             {'': 'Aseavna %', 'BEN1_70 Con 5% para ASOANVA': '5,0%' if facturacion_filtered['BEN1_70']['count'] > 0 else '0,0%', 'BEN2_62 Con 5% para ASOANVA': '5,0%' if facturacion_filtered['BEN2_62']['count'] > 0 else '0,0%'},
         ])
 
-        facturacion_df['Total'] = facturacion_df.apply(lambda row: (row['BEN1_70 Con 5% para ASOANVA'] + row['BEN2_62 Con 5% para ASOANVA']) if isinstance(row['BEN1_70 Con 5% para ASOANVA'], (int, float)) else '', axis=1)
-
-        facturacion_df.loc[facturacion_df[''] == 'Total', 'BEN1_70 Con 5% para ASOANVA'] = facturacion_filtered['BEN1_70']['count']
-        facturacion_df.loc[facturacion_df[''] == 'Total', 'BEN2_62 Con 5% para ASOANVA'] = facturacion_filtered['BEN2_62']['count']
-        facturacion_df.loc[facturacion_df[''] == 'Total', 'Total'] = facturacion_filtered['BEN1_70']['count'] + facturacion_filtered['BEN2_62']['count']
+        facturacion_df['Total'] = facturacion_df.apply(
+            lambda row: (row['BEN1_70 Con 5% para ASOANVA'] + row['BEN2_62 Con 5% para ASOANVA'])
+            if isinstance(row['BEN1_70 Con 5% para ASOANVA'], (int, float)) and row[''] not in ['% Subsidio', 'Aseavna %']
+            else row['BEN1_70 Con 5% para ASOANVA'] + row['BEN2_62 Con 5% para ASOANVA'] if row[''] == '% Subsidio'
+            else '', axis=1
+        )
 
         st.dataframe(facturacion_df, use_container_width=True)
 
@@ -883,6 +874,14 @@ def main():
         with col_export[7]:
             st.session_state.export_options['non_subsidized_commissions'] = st.checkbox("Comisiones No Subsidiadas", value=st.session_state.export_options['non_subsidized_commissions'])
 
+        # Selección de plantilla para el PDF
+        st.subheader("Selecciona la plantilla para el PDF")
+        pdf_template_options = ['Ventas', 'Consumo por Empleado', 'Consumo por Productos', 'Consumo por Centro de Costos']
+        selected_pdf_template = st.selectbox("Plantilla de PDF", pdf_template_options, index=pdf_template_options.index(st.session_state.pdf_template), key="pdf_template_select")
+        if selected_pdf_template != st.session_state.pdf_template:
+            st.session_state.pdf_template = selected_pdf_template
+            st.rerun()
+
         col_btn = st.columns(3)
         with col_btn[0]:
             if st.button("Exportar a Excel"):
@@ -942,26 +941,30 @@ def main():
                 try:
                     # Determinar la configuración de wkhtmltopdf según el sistema operativo
                     if platform.system() == "Windows":
-                        # Ruta para Windows (ajusta según tu instalación)
                         wkhtmltopdf_path = 'C:\\Program Files\\wkhtmltopdf\\bin\\wkhtmltopdf.exe'
                         configuration = pdfkit.configuration(wkhtmltopdf=wkhtmltopdf_path)
                     else:
-                        # En Streamlit Cloud (Linux), wkhtmltopdf ya está en el PATH
                         configuration = pdfkit.configuration()
 
-                    # Generar contenido HTML para el PDF
-                    html_content = """
+                    # Estilo CSS común para todas las plantillas
+                    css_styles = """
+                    <style>
+                        body { font-family: Arial, sans-serif; }
+                        h1 { color: #1F77B4; text-align: center; }
+                        h2 { color: #333; }
+                        table { width: 100%; border-collapse: collapse; margin: 20px 0; }
+                        th, td { border: 1px solid #ddd; padding: 8px; text-align: left; }
+                        th { background-color: #f2f2f2; }
+                        .summary { margin: 20px 0; text-align: center; }
+                        .currency::before { content: "₡"; }
+                    </style>
+                    """
+
+                    # Generar contenido HTML según la plantilla seleccionada
+                    html_content = f"""
                     <html>
                     <head>
-                        <style>
-                            body { font-family: Arial, sans-serif; }
-                            h1 { color: #1F77B4; text-align: center; }
-                            h2 { color: #333; }
-                            table { width: 100%; border-collapse: collapse; margin: 20px 0; }
-                            th, td { border: 1px solid #ddd; padding: 8px; text-align: left; }
-                            th { background-color: #f2f2f2; }
-                            .summary { margin: 20px 0; }
-                        </style>
+                        {css_styles}
                     </head>
                     <body>
                         <h1>Sistema de Reportes de Ventas - ASEAVNA</h1>
@@ -969,17 +972,77 @@ def main():
                         <p class='summary'>Sistema profesional para la gestión de ventas, subsidios y comisiones.</p>
                     """
 
-                    # Agregar tabla de facturación
-                    html_content += "<h2>Desglose de Facturación (solo Almuerzo Ejecutivo Aseavna)</h2>"
-                    html_content += facturacion_df.to_html(index=False, classes='facturacion-table')
+                    if st.session_state.pdf_template == 'Ventas':
+                        # Plantilla: Ventas (Resumen General)
+                        html_content += "<h2>Desglose de Facturación (solo Almuerzo Ejecutivo Aseavna)</h2>"
+                        html_content += facturacion_df.to_html(index=False, classes='facturacion-table', formatters={
+                            'BEN1_70 Con 5% para ASOANVA': lambda x: f"{x:,.2f}" if isinstance(x, (int, float)) else x,
+                            'BEN2_62 Con 5% para ASOANVA': lambda x: f"{x:,.2f}" if isinstance(x, (int, float)) else x,
+                            'Total': lambda x: f"{x:,.2f}" if isinstance(x, (int, float)) else x
+                        })
 
-                    # Agregar tabla de facturación adicional
-                    html_content += "<h2>Facturación Adicional</h2>"
-                    html_content += facturacion_adicional_df.to_html(index=False, classes='facturacion-adicional-table')
+                        html_content += "<h2>Facturación Adicional</h2>"
+                        html_content += facturacion_adicional_df.to_html(index=False, classes='facturacion-adicional-table')
 
-                    # Agregar historial de consumo
-                    html_content += "<h2>Historial de Consumo por Contacto</h2>"
-                    html_content += filtered_etiquetas.to_html(index=False, classes='consumo-table')
+                        html_content += "<h2>Historial de Consumo por Contacto</h2>"
+                        html_content += filtered_etiquetas.to_html(index=False, classes='consumo-table')
+
+                    elif st.session_state.pdf_template == 'Consumo por Empleado':
+                        # Plantilla: Consumo por Empleado
+                        html_content += "<h2>Consumo por Empleado</h2>"
+                        consumo_por_empleado = filtered_data.groupby(['display_name']).agg({
+                            'quantity': 'sum',
+                            'total': 'sum',
+                            'subsidy': 'sum',
+                            'employee_payment': 'sum'
+                        }).reset_index()
+                        consumo_por_empleado['total'] = consumo_por_empleado['total'] * consumo_por_empleado['quantity']
+                        consumo_por_empleado['subsidy'] = consumo_por_empleado['subsidy'] * consumo_por_empleado['quantity']
+                        consumo_por_empleado['employee_payment'] = consumo_por_empleado['employee_payment'] * consumo_por_empleado['quantity']
+                        consumo_por_empleado.columns = ['Empleado', 'Cantidad', 'Monto Total', 'Subsidio', 'Pago Empleado']
+                        html_content += consumo_por_empleado.to_html(index=False, classes='consumo-empleado-table', formatters={
+                            'Monto Total': lambda x: f"{x:,.2f}",
+                            'Subsidio': lambda x: f"{x:,.2f}",
+                            'Pago Empleado': lambda x: f"{x:,.2f}"
+                        })
+
+                    elif st.session_state.pdf_template == 'Consumo por Productos':
+                        # Plantilla: Consumo por Productos
+                        html_content += "<h2>Consumo por Productos</h2>"
+                        consumo_por_producto = filtered_data.groupby(['product']).agg({
+                            'quantity': 'sum',
+                            'total': 'sum',
+                            'subsidy': 'sum',
+                            'employee_payment': 'sum'
+                        }).reset_index()
+                        consumo_por_producto['total'] = consumo_por_producto['total'] * consumo_por_producto['quantity']
+                        consumo_por_producto['subsidy'] = consumo_por_producto['subsidy'] * consumo_por_producto['quantity']
+                        consumo_por_producto['employee_payment'] = consumo_por_producto['employee_payment'] * consumo_por_producto['quantity']
+                        consumo_por_producto.columns = ['Producto', 'Cantidad', 'Monto Total', 'Subsidio', 'Pago Empleado']
+                        html_content += consumo_por_producto.to_html(index=False, classes='consumo-producto-table', formatters={
+                            'Monto Total': lambda x: f"{x:,.2f}",
+                            'Subsidio': lambda x: f"{x:,.2f}",
+                            'Pago Empleado': lambda x: f"{x:,.2f}"
+                        })
+
+                    elif st.session_state.pdf_template == 'Consumo por Centro de Costos':
+                        # Plantilla: Consumo por Centro de Costos
+                        html_content += "<h2>Consumo por Centro de Costos</h2>"
+                        consumo_por_centro = filtered_data.groupby(['cost_center']).agg({
+                            'quantity': 'sum',
+                            'total': 'sum',
+                            'subsidy': 'sum',
+                            'employee_payment': 'sum'
+                        }).reset_index()
+                        consumo_por_centro['total'] = consumo_por_centro['total'] * consumo_por_centro['quantity']
+                        consumo_por_centro['subsidy'] = consumo_por_centro['subsidy'] * consumo_por_centro['quantity']
+                        consumo_por_centro['employee_payment'] = consumo_por_centro['employee_payment'] * consumo_por_centro['quantity']
+                        consumo_por_centro.columns = ['Centro de Costos', 'Cantidad', 'Monto Total', 'Subsidio', 'Pago Empleado']
+                        html_content += consumo_por_centro.to_html(index=False, classes='consumo-centro-table', formatters={
+                            'Monto Total': lambda x: f"{x:,.2f}",
+                            'Subsidio': lambda x: f"{x:,.2f}",
+                            'Pago Empleado': lambda x: f"{x:,.2f}"
+                        })
 
                     # Cerrar el HTML
                     html_content += """

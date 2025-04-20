@@ -187,6 +187,11 @@ class ReporteVentas:
         return contactos
 
     def _procesar_ventas(self, sales_df):
+        required_columns = ['Cliente', 'Empresa', 'Fecha de la orden', 'Orden', 'Cant. ordenada', 'Precio unitario', 'Total', 'Variante del producto', 'Vendedor']
+        missing_columns = [col for col in required_columns if col not in sales_df.columns]
+        if missing_columns:
+            raise ValueError(f"Columnas faltantes en sales_data.csv: {', '.join(missing_columns)}")
+
         ventas = []
         for _, row in sales_df.iterrows():
             cliente = row['Cliente']
@@ -596,6 +601,26 @@ def main():
 
     cost_breakdown_data = aggregated['cost_breakdown_by_tipo']
 
+    # Calcular comisiones no subsidiadas para datos filtrados
+    filtered_comisiones_df = pd.DataFrame()
+    total_commission_non_subsidized_filtered = 0
+    comisiones = []
+    for _, row in filtered_data.iterrows():
+        if not row['is_subsidized']:
+            commission = row['asoavna_commission'] * row['quantity']
+            total_commission_non_subsidized_filtered += commission
+            comisiones.append({
+                'client': row['client'],
+                'display_name': row['display_name'],
+                'product': row['product'],
+                'total': row['total'] * row['quantity'],
+                'base_price': row['base_price'] * row['quantity'],
+                'asoavna_commission': commission,
+                'iva': row['iva'] * row['quantity']
+            })
+    if comisiones:
+        filtered_comisiones_df = pd.DataFrame(comisiones)
+
     # Filtros
     with tabs[1], tabs[2], tabs[3], tabs[4], tabs[5]:
         st.header("Filtros de Reporte")
@@ -683,8 +708,6 @@ def main():
         total_iva_filtered = facturacion_filtered['BEN1_70']['iva'] + facturacion_filtered['BEN2_62']['iva'] + facturacion_filtered['Otros']['iva']
         total_commission_subsidized_filtered = facturacion_filtered['BEN1_70']['commission'] + facturacion_filtered['BEN2_62']['commission'] + facturacion_filtered['Otros']['commission']
 
-        # Calcular comisiones no subsidiadas para datos filtrados
-        filtered_comisiones_df, total_commission_non_subsidized_filtered = ReporteVentas(filtered_data, user_df, st.session_state.iva_rate).comisiones_no_subsidiadas
         non_subsidized_iva = filtered_comisiones_df['iva'].sum()
 
         # Calcular totales
@@ -836,8 +859,8 @@ def main():
     with tabs[5]:
         st.header("Comisiones de Productos No Subsidiados")
         st.write("Nota: La comisión para productos no subsidiados es del 5% por transacción.")
-        if not filtered_comisiones.empty:
-            comisiones_display = filtered_comisiones.copy()
+        if not filtered_comisiones_df.empty:
+            comisiones_display = filtered_comisiones_df.copy()
             comisiones_display['total'] = comisiones_display['total'].apply(format_number)
             comisiones_display['base_price'] = comisiones_display['base_price'].apply(format_number)
             comisiones_display['asoavna_commission'] = comisiones_display['asoavna_commission'].apply(format_number)
@@ -899,7 +922,7 @@ def main():
                             client_df.to_excel(writer, sheet_name=f'Cliente_{client[:20]}', index=False)
 
                     if st.session_state.export_options['non_subsidized_commissions']:
-                        comisiones_df = filtered_comisiones[['display_name', 'product', 'total', 'base_price', 'asoavna_commission', 'iva']]
+                        comisiones_df = filtered_comisiones_df[['display_name', 'product', 'total', 'base_price', 'asoavna_commission', 'iva']]
                         comisiones_df.to_excel(writer, sheet_name='Comisiones_No_Subsidiadas', index=False)
 
                 buffer.seek(0)

@@ -85,14 +85,14 @@ class Venta:
         self.is_subsidized = (self.producto == 'Almuerzo Ejecutivo Aseavna')
         self.subsidy = 0
         self.employee_payment = self.total
-        self.employee_payment_base = 0  # Inicializamos por defecto
-        self.asoavna_contribution = 0
-        self.asoavna_commission = 0
+        self.employee_payment_base = 0
+        self.asoavna_contribution = 0  # No se calcula aquí, se calculará en el total de la factura
+        self.asoavna_commission = 0    # No se calcula aquí, se calculará en el total de la factura
         self.iva = 0
         self.client_credit = 0
         self.aseavna_account = 0
-        self.base_price = 0  # Inicializamos por defecto
-        self.iva_calculated = 0  # Inicializamos por defecto
+        self.base_price = 0
+        self.iva_calculated = 0
 
     def aplicar_subsidios_y_comisiones(self):
         # Para todos los productos, el precio total incluye el 13% IVA
@@ -100,44 +100,32 @@ class Venta:
         self.iva_calculated = self.total - self.base_price  # IVA incluido en el precio
 
         if self.is_subsidized:
-            # Para Almuerzo Ejecutivo Aseavna, usamos los valores fijos de la tabla
+            # Subsidios solo para BEN1_70 y BEN2_62
             if self.tipo == 'BEN1_70':
                 self.subsidy = 2100
                 self.employee_payment = 1000  # Incluye IVA
                 self.employee_payment_base = self.employee_payment / 1.13  # ≈ 884.96
-                self.iva = 115  # Valor fijo según la tabla
-                self.asoavna_contribution = 155  # 5% del precio total (3100 * 0.05)
+                self.iva = self.employee_payment - self.employee_payment_base  # ≈ 115.04
             elif self.tipo == 'BEN2_62':
                 self.subsidy = 1800
                 self.employee_payment = 1300  # Incluye IVA
                 self.employee_payment_base = self.employee_payment / 1.13  # ≈ 1150.44
-                self.iva = 150  # Valor fijo según la tabla
-                self.asoavna_contribution = 155  # 5% del precio total (3100 * 0.05)
-            elif self.tipo in ['AVNA VISITAS', 'Contratista/Visitante', 'AVNA GB', 'AVNA ONBOARDING', 'Practicante']:
-                self.subsidy = self.total
-                self.employee_payment = 0
-                self.employee_payment_base = 0
-                self.asoavna_contribution = 0
-                self.iva = 0  # No se especifica IVA para estos tipos
+                self.iva = self.employee_payment - self.employee_payment_base  # ≈ 149.56
             else:
-                # Para cualquier otro tipo no esperado, tratamos como no subsidiado
+                # Para otros tipos (Visitas, etc.), no hay subsidio
                 self.subsidy = 0
                 self.employee_payment = self.total
                 self.employee_payment_base = self.base_price
-                self.asoavna_contribution = 0
                 self.iva = self.iva_calculated
-            self.asoavna_commission = 0  # No se aplica comisión adicional aquí, ya que la contribución es fija (155)
         else:
             # Para productos no subsidiados (ej. frescos)
             self.subsidy = 0
             self.employee_payment = self.total
             self.employee_payment_base = self.base_price
-            self.asoavna_contribution = 0
-            self.asoavna_commission = self.total * 0.05  # 5% del precio total (incluye IVA)
-            self.iva = self.iva_calculated  # IVA ya incluido en el precio
+            self.iva = self.iva_calculated
 
         self.client_credit = self.employee_payment
-        self.aseavna_account = self.subsidy + self.asoavna_contribution + self.asoavna_commission
+        self.aseavna_account = self.subsidy  # Solo el subsidio, sin incluir comisiones aquí
 
     def to_dict(self):
         return {
@@ -236,17 +224,22 @@ class ReporteVentas:
             'Otros': {'avna': 0, 'aseavna': 0, 'count': 0, 'iva': 0}
         }
 
+        # Calcular facturación y total de ventas para la comisión
+        total_sales = 0
         for _, row in df.iterrows():
+            # Sumar al total de ventas (precio total * cantidad)
+            total_sales += row['total'] * row['quantity']
+
             if not row['is_subsidized']:
                 continue
             if row['tipo'] == 'BEN1_70':
                 facturacion['BEN1_70']['avna'] += row['subsidy'] * row['quantity']
-                facturacion['BEN1_70']['aseavna'] += row['employee_payment_base'] * row['quantity']  # Diferencia sin IVA
+                facturacion['BEN1_70']['aseavna'] += row['employee_payment_base'] * row['quantity']
                 facturacion['BEN1_70']['count'] += row['quantity']
                 facturacion['BEN1_70']['iva'] += row['iva'] * row['quantity']
             elif row['tipo'] == 'BEN2_62':
                 facturacion['BEN2_62']['avna'] += row['subsidy'] * row['quantity']
-                facturacion['BEN2_62']['aseavna'] += row['employee_payment_base'] * row['quantity']  # Diferencia sin IVA
+                facturacion['BEN2_62']['aseavna'] += row['employee_payment_base'] * row['quantity']
                 facturacion['BEN2_62']['count'] += row['quantity']
                 facturacion['BEN2_62']['iva'] += row['iva'] * row['quantity']
             else:
@@ -255,17 +248,18 @@ class ReporteVentas:
                 facturacion['Otros']['count'] += row['quantity']
                 facturacion['Otros']['iva'] += row['iva'] * row['quantity']
 
-        total_transacciones_almuerzo = facturacion['BEN1_70']['count'] + facturacion['BEN2_62']['count']
-        aseavna_contribution = total_transacciones_almuerzo * 155
+        # Calcular la comisión del 5% sobre el total de ventas
+        aseavna_commission = total_sales * 0.05
         total_iva = facturacion['BEN1_70']['iva'] + facturacion['BEN2_62']['iva'] + facturacion['Otros']['iva']
         facturar_aseavna = (facturacion['BEN1_70']['aseavna'] + facturacion['BEN2_62']['aseavna'] +
-                            facturacion['Otros']['aseavna'] + aseavna_contribution + total_iva)
+                            facturacion['Otros']['aseavna'] + total_iva)
 
         return {
             'facturacion': facturacion,
-            'aseavna_contribution': aseavna_contribution,
+            'aseavna_commission': aseavna_commission,
             'facturar_aseavna': facturar_aseavna,
-            'total_iva': total_iva
+            'total_iva': total_iva,
+            'total_sales': total_sales
         }
 
     def _calcular_comisiones_no_subsidiadas(self):
@@ -279,7 +273,6 @@ class ReporteVentas:
                     'product': row['product'],
                     'total': row['total'] * row['quantity'],
                     'base_price': row['base_price'] * row['quantity'],
-                    'asoavna_commission': row['asoavna_commission'] * row['quantity'],
                     'iva': row['iva'] * row['quantity']
                 })
         return pd.DataFrame(comisiones)
@@ -511,7 +504,7 @@ def main():
             unique_cost_centers = ['All'] + sorted(sales_data['cost_center'].unique())
             selected_cost_center = st.selectbox("Centro de Costos", unique_cost_centers, index=unique_cost_centers.index(st.session_state.selected_cost_center), key="cost_center_filter")
         with col5:
-            unique_clients = ['All'] + sorted(sales_data['client'].unique())  # Usar 'client' en lugar de 'display_name'
+            unique_clients = ['All'] + sorted(sales_data['client'].unique())
             selected_client = st.selectbox("Cliente", unique_clients, index=unique_clients.index(st.session_state.selected_client) if st.session_state.selected_client in unique_clients else 0, key="client_filter")
 
         # Forzar actualización de los filtros
@@ -561,14 +554,16 @@ def main():
     # Pestaña de Facturación
     with tabs[1]:
         st.header("Desglose de Facturación (solo Almuerzo Ejecutivo Aseavna)")
-        st.write("Nota: Los subsidios y costos asociados se aplican únicamente al producto 'Almuerzo Ejecutivo Aseavna'.")
+        st.write("Nota: Los subsidios y costos asociados se aplican únicamente al producto 'Almuerzo Ejecutivo Aseavna' para BEN1 y BEN2.")
 
         facturacion_filtered = {
             'BEN1_70': {'avna': 0, 'aseavna': 0, 'count': 0, 'iva': 0},
             'BEN2_62': {'avna': 0, 'aseavna': 0, 'count': 0, 'iva': 0},
             'Otros': {'avna': 0, 'aseavna': 0, 'count': 0, 'iva': 0}
         }
+        total_sales_filtered = 0
         for _, row in filtered_data.iterrows():
+            total_sales_filtered += row['total'] * row['quantity']
             if not row['is_subsidized']:
                 continue
             if row['tipo'] == 'BEN1_70':
@@ -587,16 +582,13 @@ def main():
                 facturacion_filtered['Otros']['count'] += row['quantity']
                 facturacion_filtered['Otros']['iva'] += row['iva'] * row['quantity']
 
-        total_transacciones_almuerzo = facturacion_filtered['BEN1_70']['count'] + facturacion_filtered['BEN2_62']['count']
-        aseavna_contribution = total_transacciones_almuerzo * 155
-        non_subsidized_commission = filtered_comisiones['asoavna_commission'].sum()
+        aseavna_commission = total_sales_filtered * 0.05
         total_iva = facturacion_filtered['BEN1_70']['iva'] + facturacion_filtered['BEN2_62']['iva'] + facturacion_filtered['Otros']['iva']
         non_subsidized_iva = filtered_comisiones['iva'].sum()
         total_facturar_aseavna = (facturacion_filtered['BEN1_70']['aseavna'] +
                                  facturacion_filtered['BEN2_62']['aseavna'] +
                                  facturacion_filtered['Otros']['aseavna'] +
-                                 aseavna_contribution +
-                                 non_subsidized_commission +
+                                 aseavna_commission +
                                  total_iva +
                                  non_subsidized_iva)
 
@@ -607,8 +599,7 @@ def main():
             {'Concepto': 'Diferencia a Aseavna (BEN2_62)', 'Monto': format_number(facturacion_filtered['BEN2_62']['aseavna']), 'Transacciones': facturacion_filtered['BEN2_62']['count']},
             {'Concepto': 'Facturar a AVNA (Otros)', 'Monto': format_number(facturacion_filtered['Otros']['avna']), 'Transacciones': facturacion_filtered['Otros']['count']},
             {'Concepto': 'Diferencia a Aseavna (Otros)', 'Monto': format_number(facturacion_filtered['Otros']['aseavna']), 'Transacciones': facturacion_filtered['Otros']['count']},
-            {'Concepto': 'Contribución Aseavna (5%)', 'Monto': format_number(aseavna_contribution), 'Transacciones': ''},
-            {'Concepto': 'Comisión Productos No Subsidiados (5%)', 'Monto': format_number(non_subsidized_commission), 'Transacciones': ''},
+            {'Concepto': 'Comisión Aseavna (5% del Total de Ventas)', 'Monto': format_number(aseavna_commission), 'Transacciones': ''},
             {'Concepto': 'IVA (13%)', 'Monto': format_number(total_iva + non_subsidized_iva), 'Transacciones': ''},
             {'Concepto': 'Total a Facturar a Aseavna', 'Monto': format_number(total_facturar_aseavna), 'Transacciones': ''}
         ])
@@ -773,13 +764,12 @@ def main():
 
     # Pestaña de Comisiones No Subsidiadas
     with tabs[5]:
-        st.header("Comisiones de Productos No Subsidiados (5% Aseavna)")
-        st.write("Nota: Se aplica una comisión del 5% a todos los productos no subsidiados (ej. Coca-Cola).")
+        st.header("Comisiones de Productos No Subsidiados")
+        st.write("Nota: La comisión del 5% se aplica al total de ventas, no por producto individual.")
         if not filtered_comisiones.empty:
             comisiones_display = filtered_comisiones.copy()
             comisiones_display['total'] = comisiones_display['total'].apply(format_number)
             comisiones_display['base_price'] = comisiones_display['base_price'].apply(format_number)
-            comisiones_display['asoavna_commission'] = comisiones_display['asoavna_commission'].apply(format_number)
             comisiones_display['iva'] = comisiones_display['iva'].apply(format_number)
             st.dataframe(comisiones_display, use_container_width=True)
         else:
@@ -836,8 +826,7 @@ def main():
                             ['Diferencia a Aseavna (BEN2_62)', format_number(facturacion_filtered['BEN2_62']['aseavna']), facturacion_filtered['BEN2_62']['count']],
                             ['Facturar a AVNA (Otros)', format_number(facturacion_filtered['Otros']['avna']), facturacion_filtered['Otros']['count']],
                             ['Diferencia a Aseavna (Otros)', format_number(facturacion_filtered['Otros']['aseavna']), facturacion_filtered['Otros']['count']],
-                            ['Contribución Aseavna (5%)', format_number(aseavna_contribution), ''],
-                            ['Comisión Productos No Subsidiados (5%)', format_number(non_subsidized_commission), ''],
+                            ['Comisión Aseavna (5% del Total de Ventas)', format_number(aseavna_commission), ''],
                             ['IVA (13%)', format_number(total_iva + non_subsidized_iva), ''],
                             ['Total a Facturar a Aseavna', format_number(total_facturar_aseavna), '']
                         ], columns=['Concepto', 'Monto', 'Transacciones'])
@@ -849,7 +838,7 @@ def main():
                             client_df.to_excel(writer, sheet_name=f'Cliente_{client[:20]}', index=False)
 
                     if st.session_state.export_options['non_subsidized_commissions']:
-                        comisiones_df = filtered_comisiones[['display_name', 'product', 'total', 'base_price', 'asoavna_commission', 'iva']]
+                        comisiones_df = filtered_comisiones[['display_name', 'product', 'total', 'base_price', 'iva']]
                         comisiones_df.to_excel(writer, sheet_name='Comisiones_No_Subsidiadas', index=False)
 
                 buffer.seek(0)
@@ -874,7 +863,6 @@ def main():
         with col_btn[2]:
             if st.button("Exportar a PDF"):
                 try:
-                    # Especificar la ruta al ejecutable wkhtmltopdf (ajusta según tu sistema)
                     config = pdfkit.configuration(wkhtmltopdf=r"C:\Program Files\wkhtmltopdf\bin\wkhtmltopdf.exe")
                     pdfkit.from_string("Reporte de Ventas", "reporte_ventas.pdf", configuration=config)
                     with open("reporte_ventas.pdf", "rb") as f:

@@ -10,6 +10,7 @@ import unicodedata
 import hashlib
 import os
 import tempfile
+import platform
 
 # Configuración de la página
 st.set_page_config(page_title="Sistema de Reportes de Ventas - ASEAVNA", layout="wide")
@@ -939,9 +940,56 @@ def main():
         with col_btn[2]:
             if st.button("Exportar a PDF"):
                 try:
+                    # Determinar la configuración de wkhtmltopdf según el sistema operativo
+                    if platform.system() == "Windows":
+                        # Ruta para Windows (ajusta según tu instalación)
+                        wkhtmltopdf_path = 'C:\\Program Files\\wkhtmltopdf\\bin\\wkhtmltopdf.exe'
+                        configuration = pdfkit.configuration(wkhtmltopdf=wkhtmltopdf_path)
+                    else:
+                        # En Streamlit Cloud (Linux), wkhtmltopdf ya está en el PATH
+                        configuration = pdfkit.configuration()
+
+                    # Generar contenido HTML para el PDF
+                    html_content = """
+                    <html>
+                    <head>
+                        <style>
+                            body { font-family: Arial, sans-serif; }
+                            h1 { color: #1F77B4; text-align: center; }
+                            h2 { color: #333; }
+                            table { width: 100%; border-collapse: collapse; margin: 20px 0; }
+                            th, td { border: 1px solid #ddd; padding: 8px; text-align: left; }
+                            th { background-color: #f2f2f2; }
+                            .summary { margin: 20px 0; }
+                        </style>
+                    </head>
+                    <body>
+                        <h1>Sistema de Reportes de Ventas - ASEAVNA</h1>
+                        <p class='summary'>Generado el 19 de abril de 2025 para C2-ASEAVNA, Grecia, Costa Rica</p>
+                        <p class='summary'>Sistema profesional para la gestión de ventas, subsidios y comisiones.</p>
+                    """
+
+                    # Agregar tabla de facturación
+                    html_content += "<h2>Desglose de Facturación (solo Almuerzo Ejecutivo Aseavna)</h2>"
+                    html_content += facturacion_df.to_html(index=False, classes='facturacion-table')
+
+                    # Agregar tabla de facturación adicional
+                    html_content += "<h2>Facturación Adicional</h2>"
+                    html_content += facturacion_adicional_df.to_html(index=False, classes='facturacion-adicional-table')
+
+                    # Agregar historial de consumo
+                    html_content += "<h2>Historial de Consumo por Contacto</h2>"
+                    html_content += filtered_etiquetas.to_html(index=False, classes='consumo-table')
+
+                    # Cerrar el HTML
+                    html_content += """
+                    </body>
+                    </html>
+                    """
+
                     # Usar archivo temporal para PDF
                     with tempfile.NamedTemporaryFile(delete=False, suffix='.pdf') as tmp_file:
-                        pdfkit.from_string("Reporte de Ventas", tmp_file.name)
+                        pdfkit.from_string(html_content, tmp_file.name, configuration=configuration)
                         with open(tmp_file.name, "rb") as f:
                             pdf_data = f.read()
                         st.download_button(

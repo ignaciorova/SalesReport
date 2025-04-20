@@ -53,21 +53,18 @@ class Venta:
         self.producto = producto if pd.notna(producto) else ""
         self.vendedor = vendedor if pd.notna(vendedor) else ""
 
-        # Extraer tipo y nombre del cliente
         client_parts = self.cliente.split(', ')
         self.tipo = ('BEN1_70' if 'BEN1_70' in client_parts[0] else
                      'BEN2_62' if 'BEN2_62' in client_parts[0] else
                      client_parts[0].replace('ASEAVNA ', ''))
         self.client_name = client_parts[1] if len(client_parts) > 1 else client_parts[0]
 
-        # Vincular con contacto
         self.contacto = contacto if contacto else Contacto(self.client_name, "Desconocido", "No especificado", self.tipo)
         self.name = self.contacto.nombre
         self.cedula = self.contacto.cedula
         self.position = self.contacto.puesto
         self.tipo = self.contacto.tipo if self.contacto.tipo != "Desconocido" else self.tipo
 
-        # Asignar centro de costos
         if self.tipo == 'BEN1_70':
             self.cost_center = 'CostCenter_BEN1'
         elif self.tipo == 'BEN2_62':
@@ -81,12 +78,11 @@ class Venta:
         else:
             self.cost_center = 'CostCenter_Other'
 
-        # Inicializar costos y estado del subsidio
         self.is_subsidized = (self.producto == 'Almuerzo Ejecutivo Aseavna')
         self.subsidy = 0
         self.employee_payment = self.total
         self.asoavna_contribution = 0
-        self.asoavna_commission = 0  # Comisión del 5% para productos no subsidiados
+        self.asoavna_commission = 0
         self.client_credit = 0
         self.aseavna_account = 0
 
@@ -263,6 +259,7 @@ class ReporteVentas:
             }
         return reportes
 
+    @st.cache_data
     def aggregate_data(self, filtered_df):
         revenue_by_client = (filtered_df.groupby('client')['total'].sum() * filtered_df.groupby('client')['quantity'].sum()).to_dict()
         sales_by_date = (filtered_df.groupby(filtered_df['date'].dt.strftime('%Y-%m-%d'))['total'].sum() * filtered_df.groupby(filtered_df['date'].dt.strftime('%Y-%m-%d'))['quantity'].sum()).to_dict()
@@ -292,6 +289,7 @@ def format_number(num):
     return f"{num:.0f}"
 
 # Cargar datos
+@st.cache_data
 def load_data():
     try:
         sales_df = pd.read_csv('sales_data.csv')
@@ -351,16 +349,19 @@ def main():
     if sales_df is None or user_df is None:
         return
 
-    # Procesar datos con clases
-    try:
-        reporte = ReporteVentas(sales_df, user_df)
-        sales_data = reporte.datos
-        facturacion = reporte.facturacion
-        comisiones_no_subsidiadas = reporte.comisiones_no_subsidiadas
-        reportes_individuales = reporte.reportes_individuales
-    except Exception as e:
-        st.error(f"Error al procesar los datos: {e}")
-        return
+    # Procesar datos con clases y almacenar en caché
+    if 'reporte' not in st.session_state:
+        try:
+            st.session_state.reporte = ReporteVentas(sales_df, user_df)
+        except Exception as e:
+            st.error(f"Error al procesar los datos: {e}")
+            return
+
+    reporte = st.session_state.reporte
+    sales_data = reporte.datos
+    facturacion = reporte.facturacion
+    comisiones_no_subsidiadas = reporte.comisiones_no_subsidiadas
+    reportes_individuales = reporte.reportes_individuales
 
     # Estado para filtros
     if 'selected_tipo' not in st.session_state:
@@ -439,6 +440,9 @@ def main():
     sales_trend_data = pd.DataFrame([
         {'date': k, 'revenue': v} for k, v in aggregated['sales_by_date'].items()
     ]).sort_values('date')
+    # Reducir datos para el gráfico de tendencia (muestreo si hay muchos puntos)
+    if len(sales_trend_data) > 100:
+        sales_trend_data = sales_trend_data.iloc[::len(sales_trend_data)//100]
 
     product_pie_data = pd.DataFrame([
         {'name': k, 'value': v} for k, v in aggregated['product_distribution'].items()
@@ -452,7 +456,7 @@ def main():
         col1, col2, col3, col4, col5 = st.columns(5)
         with col1:
             unique_tipos = ['All'] + sorted(sales_data['tipo'].unique())
-            st.session_state.selected_tipo = st.selectbox("Tipo", unique_tipos, index=unique_tipos.index(st.session_state.selected_tipo), key="tipo_filter")
+            selected_tipo = st.selectbox("Tipo", unique_tipos, index=unique_tipos.index(st.session_state.selected_tipo), key="tipo_filter")
         with col2:
             start_date, end_date = st.date_input(
                 "Rango de Fechas",
@@ -461,16 +465,33 @@ def main():
                 max_value=sales_data['date'].max().date(),
                 key="date_filter"
             )
-            st.session_state.date_range_start = start_date
-            st.session_state.date_range_end = end_date
         with col3:
-            st.session_state.search_query = st.text_input("Buscar Cliente o Cédula", value=st.session_state.search_query, key="search_filter")
+            search_query = st.text_input("Buscar Cliente o Cédula", value=st.session_state.search_query, key="search_filter")
         with col4:
             unique_cost_centers = ['All'] + sorted(sales_data['cost_center'].unique())
-            st.session_state.selected_cost_center = st.selectbox("Centro de Costos", unique_cost_centers, index=unique_cost_centers.index(st.session_state.selected_cost_center), key="cost_center_filter")
+            selected_cost_center = st.selectbox("Centro de Costos", unique_cost_centers, index=unique_cost_centers.index(st.session_state.selected_cost_center), key="cost_center_filter")
         with col5:
             unique_clients = ['All'] + sorted(sales_data['client'].unique())
-            st.session_state.selected_client = st.selectbox("Cliente", unique_clients, index=unique_clients.index(st.session_state.selected_client), key="client_filter")
+            selected_client = st.selectbox("Cliente", unique_clients, index=unique_clients.index(st.session_state.selected_client), key="client_filter")
+
+        # Actualizar filtros solo si cambian
+        filters_changed = (
+            selected_tipo != st.session_state.selected_tipo or
+            start_date != st.session_state.date_range_start or
+            end_date != st.session_state.date_range_end or
+            search_query != st.session_state.search_query or
+            selected_cost_center != st.session_state.selected_cost_center or
+            selected_client != st.session_state.selected_client
+        )
+        if filters_changed:
+            st.session_state.selected_tipo = selected_tipo
+            st.session_state.date_range_start = start_date
+            st.session_state.date_range_end = end_date
+            st.session_state.search_query = search_query
+            st.session_state.selected_cost_center = selected_cost_center
+            st.session_state.selected_client = selected_client
+            st.session_state.current_page = 1  # Resetear página al cambiar filtros
+            st.rerun()
 
         if st.button("Restablecer Filtros"):
             st.session_state.selected_tipo = 'All'
@@ -479,6 +500,7 @@ def main():
             st.session_state.search_query = ''
             st.session_state.selected_cost_center = 'All'
             st.session_state.selected_client = 'All'
+            st.session_state.current_page = 1
             st.rerun()
 
     # Pestaña de Facturación
@@ -486,7 +508,6 @@ def main():
         st.header("Desglose de Facturación (solo Almuerzo Ejecutivo Aseavna)")
         st.write("Nota: Los subsidios y costos asociados se aplican únicamente al producto 'Almuerzo Ejecutivo Aseavna'.")
 
-        # Calcular facturación con datos filtrados
         facturacion_filtered = {
             'BEN1_70': {'avna': 0, 'aseavna': 0, 'count': 0},
             'BEN2_62': {'avna': 0, 'aseavna': 0, 'count': 0},
@@ -511,13 +532,12 @@ def main():
         total_transacciones_almuerzo = facturacion_filtered['BEN1_70']['count'] + facturacion_filtered['BEN2_62']['count']
         aseavna_contribution = total_transacciones_almuerzo * 155
         non_subsidized_commission = filtered_comisiones['asoavna_commission'].sum()
-        total_facturar_aseavna = (facturacion_filtered['BEN1_70']['aseavna'] + 
-                                 facturacion_filtered['BEN2_62']['aseavna'] + 
-                                 facturacion_filtered['Otros']['aseavna'] + 
-                                 aseavna_contribution + 
+        total_facturar_aseavna = (facturacion_filtered['BEN1_70']['aseavna'] +
+                                 facturacion_filtered['BEN2_62']['aseavna'] +
+                                 facturacion_filtered['Otros']['aseavna'] +
+                                 aseavna_contribution +
                                  non_subsidized_commission)
 
-        # Mostrar tabla de facturación
         facturacion_df = pd.DataFrame([
             {'Concepto': 'Facturar a AVNA (BEN1_70)', 'Monto (₡)': format_number(facturacion_filtered['BEN1_70']['avna']), 'Transacciones': facturacion_filtered['BEN1_70']['count']},
             {'Concepto': 'Pagar a Aseavna (BEN1_70)', 'Monto (₡)': format_number(facturacion_filtered['BEN1_70']['aseavna']), 'Transacciones': facturacion_filtered['BEN1_70']['count']},
@@ -533,7 +553,6 @@ def main():
 
     # Pestaña de Gráficos
     with tabs[2]:
-        # Gráficos
         if st.session_state.export_options['revenue_chart']:
             st.header("Ingresos por Cliente")
             if not revenue_chart_data.empty:
@@ -586,7 +605,7 @@ def main():
         st.session_state.current_page = max(1, min(st.session_state.current_page, total_pages))
 
         start_idx = (st.session_state.current_page - 1) * rows_per_page
-        end_idx = start_idx + rows_per_page
+        end_idx = min(start_idx + rows_per_page, len(filtered_data))
         paginated_data = filtered_data.iloc[start_idx:end_idx].copy()
         paginated_data['date'] = paginated_data['date'].dt.strftime('%Y-%m-%d')
         paginated_data['total'] = paginated_data['total'].apply(format_number)
@@ -597,7 +616,6 @@ def main():
         paginated_data['client_credit'] = paginated_data['client_credit'].apply(format_number)
         paginated_data['aseavna_account'] = paginated_data['aseavna_account'].apply(format_number)
 
-        # Agregar interacción para ordenar
         sort_options = {
             'Cliente': 'client',
             'Nombre Vinculado': 'name',
@@ -618,14 +636,15 @@ def main():
         col_sort = st.columns(2)
         with col_sort[0]:
             sort_by = st.selectbox("Ordenar por", list(sort_options.keys()))
-            st.session_state.sort_key = sort_options[sort_by]
         with col_sort[1]:
             direction = st.selectbox("Dirección", ['Ascendente', 'Descendente'])
+        
+        if sort_by != [k for k, v in sort_options.items() if v == st.session_state.sort_key][0] or \
+           direction != ('Ascendente' if st.session_state.sort_direction == 'asc' else 'Descendente'):
+            st.session_state.sort_key = sort_options[sort_by]
             st.session_state.sort_direction = 'asc' if direction == 'Ascendente' else 'desc'
-            if sort_by or direction:
-                st.rerun()
+            st.rerun()
 
-        # Mostrar la tabla con los campos relevantes
         st.dataframe(paginated_data[[
             'client', 'name', 'cedula', 'position', 'tipo', 'date', 'product',
             'quantity', 'total', 'subsidy', 'employee_payment', 'cost_center',
@@ -656,7 +675,6 @@ def main():
                 with col_client[1]:
                     st.metric("Total en Cuenta de Aseavna", f"₡{format_number(client_data['total_aseavna_account'])}")
 
-                # Transacciones Subsidiadas
                 st.subheader("Transacciones Subsidiadas (Almuerzo Ejecutivo Aseavna)")
                 subsidized_df = client_data['subsidized'][['date', 'product', 'quantity', 'total', 'subsidy', 'employee_payment', 'asoavna_contribution', 'client_credit', 'aseavna_account']]
                 subsidized_df['date'] = subsidized_df['date'].dt.strftime('%Y-%m-%d')
@@ -668,7 +686,6 @@ def main():
                 subsidized_df['aseavna_account'] = subsidized_df['aseavna_account'].apply(format_number)
                 st.dataframe(subsidized_df, use_container_width=True)
 
-                # Transacciones No Subsidiadas
                 st.subheader("Transacciones No Subsidiadas")
                 non_subsidized_df = client_data['non_subsidized'][['date', 'product', 'quantity', 'total', 'subsidy', 'employee_payment', 'asoavna_commission', 'client_credit', 'aseavna_account']]
                 non_subsidized_df['date'] = non_subsidized_df['date'].dt.strftime('%Y-%m-%d')
@@ -720,7 +737,6 @@ def main():
             if st.button("Exportar a Excel"):
                 buffer = BytesIO()
                 with pd.ExcelWriter(buffer, engine='xlsxwriter') as writer:
-                    # Pestaña: Resumen
                     total_revenue = (filtered_data['total'] * filtered_data['quantity']).sum()
                     total_subsidies = (filtered_data['subsidy'] * filtered_data['quantity']).sum()
                     average_transaction = total_revenue / len(filtered_data) if len(filtered_data) > 0 else 0
@@ -734,12 +750,10 @@ def main():
                     ], columns=['Métrica', 'Valor'])
                     summary_data.to_excel(writer, sheet_name='Resumen', index=False)
 
-                    # Pestaña: Consumo
                     if st.session_state.export_options['consumption_table']:
                         export_df = filtered_data[['client', 'name', 'cedula', 'position', 'tipo', 'date', 'product', 'quantity', 'total', 'subsidy', 'employee_payment', 'cost_center', 'is_subsidized', 'client_credit', 'aseavna_account', 'asoavna_commission']]
                         export_df.to_excel(writer, sheet_name='Consumo', index=False)
 
-                    # Pestaña: Facturación
                     if st.session_state.export_options['facturacion_table']:
                         facturacion_data = pd.DataFrame([
                             ['Facturar a AVNA (BEN1_70)', f"₡{format_number(facturacion_filtered['BEN1_70']['avna'])}", facturacion_filtered['BEN1_70']['count']],
@@ -754,13 +768,11 @@ def main():
                         ], columns=['Concepto', 'Monto', 'Transacciones'])
                         facturacion_data.to_excel(writer, sheet_name='Facturación', index=False)
 
-                    # Pestaña: Reportes Individuales
                     if st.session_state.export_options['individual_report']:
                         for client, datos in reportes_individuales.items():
                             client_df = datos['transacciones'][['date', 'product', 'quantity', 'total', 'subsidy', 'employee_payment', 'asoavna_contribution', 'client_credit', 'aseavna_account', 'asoavna_commission']]
                             client_df.to_excel(writer, sheet_name=f'Cliente_{client[:20]}', index=False)
 
-                    # Pestaña: Comisiones No Subsidiadas
                     if st.session_state.export_options['non_subsidized_commissions']:
                         comisiones_df = filtered_comisiones[['client', 'product', 'total', 'asoavna_commission']]
                         comisiones_df.to_excel(writer, sheet_name='Comisiones_No_Subsidiadas', index=False)
@@ -786,7 +798,18 @@ def main():
 
         with col_btn[2]:
             if st.button("Exportar a PDF"):
-                st.warning("La exportación a PDF requiere la instalación de pdfkit y wkhtmltopdf. Por favor, configura tu entorno para habilitar esta funcionalidad.")
+                try:
+                    pdfkit.from_string("Reporte de Ventas", "reporte_ventas.pdf")
+                    with open("reporte_ventas.pdf", "rb") as f:
+                        pdf_data = f.read()
+                    st.download_button(
+                        label="Descargar PDF",
+                        data=pdf_data,
+                        file_name=f"reporte_ventas_aseavna_{datetime.now().strftime('%Y-%m-%d')}.pdf",
+                        mime="application/pdf"
+                    )
+                except Exception as e:
+                    st.warning(f"No se pudo generar el PDF. Asegúrate de que pdfkit y wkhtmltopdf estén instalados. Error: {e}")
 
 if __name__ == "__main__":
     main()

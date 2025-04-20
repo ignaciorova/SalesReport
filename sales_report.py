@@ -168,7 +168,7 @@ class ReporteVentas:
         self.ventas = self._procesar_ventas(sales_df)
         self._aplicar_subsidios_y_comisiones()
         self.datos = self._crear_dataframe()
-        self.etiquetas_fila = self._generar_etiquetas_fila()
+        self.etiquetas_fila = self._generar_etiquetas_fila(self.datos)
         self.facturacion = self._calcular_facturacion()
         self.comisiones_no_subsidiadas = self._calcular_comisiones_no_subsidiadas()
         self.reportes_individuales = self._generar_reportes_individuales()
@@ -222,8 +222,9 @@ class ReporteVentas:
         df = df.drop_duplicates(subset='key').drop(columns='key')
         return df
 
-    def _generar_etiquetas_fila(self):
-        df = self.datos.copy()
+    def _generar_etiquetas_fila(self, df=None):
+        if df is None:
+            df = self.datos.copy()
         # Agrupar por cliente y producto
         grouped = df.groupby(['client', 'display_name', 'tipo', 'product']).agg({
             'quantity': 'sum',
@@ -549,7 +550,7 @@ def main():
         filtered_comisiones = filtered_comisiones[filtered_comisiones['client'] == st.session_state.selected_client]
 
     # Recalcular etiquetas_fila con datos filtrados
-    filtered_etiquetas = ReporteVentas(filtered_data, user_df, st.session_state.iva_rate).etiquetas_fila
+    filtered_etiquetas = reporte._generar_etiquetas_fila(filtered_data)
 
     filtered_data = filtered_data.sort_values(
         by=st.session_state.sort_key,
@@ -658,7 +659,7 @@ def main():
                 facturacion_filtered['Otros']['count'] += row['quantity']
                 facturacion_filtered['Otros']['subsidy'] += row['subsidy'] * row['quantity']
                 facturacion_filtered['Otros']['employee_payment'] += row['employee_payment'] * row['quantity']
-                facturacion_filtered['Otros']['iva'] += row['iva'] * row['quantity']
+                fact Sor['Otros']['iva'] += row['iva'] * row['quantity']
                 facturacion_filtered['Otros']['commission'] += row['asoavna_commission'] * row['quantity']
 
         total_subsidy_filtered = facturacion_filtered['BEN1_70']['subsidy'] + facturacion_filtered['BEN2_62']['subsidy'] + facturacion_filtered['Otros']['subsidy']

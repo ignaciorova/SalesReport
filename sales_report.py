@@ -511,7 +511,7 @@ def main():
     if 'current_page' not in st.session_state:
         st.session_state.current_page = 1
     if 'sort_key' not in st.session_state:
-        st.session_state.sort_key = 'Empleado'
+        st.session_state.sort_key = 'display_name'  # Changed from 'Empleado' to 'display_name'
     if 'sort_direction' not in st.session_state:
         st.session_state.sort_direction = 'asc'
     if 'export_options' not in st.session_state:

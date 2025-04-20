@@ -659,7 +659,7 @@ def main():
                 facturacion_filtered['Otros']['count'] += row['quantity']
                 facturacion_filtered['Otros']['subsidy'] += row['subsidy'] * row['quantity']
                 facturacion_filtered['Otros']['employee_payment'] += row['employee_payment'] * row['quantity']
-                fact Sor['Otros']['iva'] += row['iva'] * row['quantity']
+                facturacion_filtered['Otros']['iva'] += row['iva'] * row['quantity']
                 facturacion_filtered['Otros']['commission'] += row['asoavna_commission'] * row['quantity']
 
         total_subsidy_filtered = facturacion_filtered['BEN1_70']['subsidy'] + facturacion_filtered['BEN2_62']['subsidy'] + facturacion_filtered['Otros']['subsidy']
@@ -688,7 +688,7 @@ def main():
             {'': 'Facturar a AVNA', 'BEN1_70 Con 5% para ASOANVA': facturacion_filtered['BEN1_70']['subsidy'], 'BEN2_62 Con 5% para ASOANVA': facturacion_filtered['BEN2_62']['subsidy']},
             {'': 'Monto a cobrar al trabajador', 'BEN1_70 Con 5% para ASOANVA': facturacion_filtered['BEN1_70']['employee_payment'], 'BEN2_62 Con 5% para ASOANVA': facturacion_filtered['BEN2_62']['employee_payment']},
             {'': 'Total', 'BEN1_70 Con 5% para ASOANVA': total_ben1_filtered, 'BEN2_62 Con 5% para ASOANVA': total_ben2_filtered},
-            {'': 'Aseavna colones', 'BEN1_70 Con 5% para ASOANVA': 155 if facturacion_filtered['BEN1_70']['count'] > 0 else 0, 'BEN2_62 Con 5% para ASOANVA': 150 if facturacion_filtered['BEN2_62']['count'] > 0 else 0},
+            {'': 'Aseavna colones', 'BEN1_70 Con 5% para ASOANVA': 155 if facturacion_filtered['BEN1_70']['count'] > 0 else 0, 'BEN2_62 Con 5% para ASOANVA': 150 if facturacion_filtered['BEN2_62']['count'] > 0 else.clock(),
             {'': 'Aseavna %', 'BEN1_70 Con 5% para ASOANVA': '5,0%' if facturacion_filtered['BEN1_70']['count'] > 0 else '0,0%', 'BEN2_62 Con 5% para ASOANVA': '5,0%' if facturacion_filtered['BEN2_62']['count'] > 0 else '0,0%'},
         ])
 

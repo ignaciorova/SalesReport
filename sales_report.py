@@ -11,6 +11,188 @@ import unicodedata
 # Configuración de la página
 st.set_page_config(page_title="Informe de Análisis de Ventas", layout="wide")
 
+# Clase para manejar contactos
+class Contacto:
+    def __init__(self, nombre, cedula, puesto, tipo):
+        self.nombre = nombre if pd.notna(nombre) else "Desconocido"
+        self.cedula = str(cedula) if pd.notna(cedula) else "Desconocido"
+        self.puesto = puesto if pd.notna(puesto) else "No especificado"
+        self.tipo = tipo if pd.notna(tipo) else "Desconocido"
+        self.normalized_name = self._normalize_name(self.nombre)
+
+    def _normalize_name(self, name):
+        if not isinstance(name, str):
+            return ''
+        name = name.strip().lower()
+        name = ''.join(c for c in unicodedata.normalize('NFD', name) if unicodedata.category(c) != 'Mn')
+        return name.replace(' ', '')
+
+    def to_dict(self):
+        return {
+            'name': self.nombre,
+            'cedula': self.cedula,
+            'position': self.puesto,
+            'tipo': self.tipo,
+            'normalized_name': self.normalized_name
+        }
+
+# Clase para manejar una venta
+class Venta:
+    def __init__(self, cliente, empresa, fecha, orden, cantidad, precio_unitario, total, producto, vendedor, contacto):
+        self.cliente = cliente if pd.notna(cliente) else "Desconocido"
+        self.empresa = empresa if pd.notna(empresa) else ""
+        try:
+            self.fecha = pd.to_datetime(fecha, format='%Y-%m-%d %H:%M:%S')
+        except:
+            self.fecha = None
+        self.orden = orden if pd.notna(orden) else ""
+        self.cantidad = float(cantidad) if pd.notna(cantidad) else 0
+        self.precio_unitario = float(precio_unitario) if pd.notna(precio_unitario) else 0
+        self.total = float(total) if pd.notna(total) else 0
+        self.producto = producto if pd.notna(producto) else ""
+        self.vendedor = vendedor if pd.notna(vendedor) else ""
+
+        # Extraer tipo y nombre del cliente
+        client_parts = self.cliente.split(', ')
+        self.tipo = ('BEN1_70' if 'BEN1_70' in client_parts[0] else
+                     'BEN2_62' if 'BEN2_62' in client_parts[0] else
+                     client_parts[0].replace('ASEAVNA ', ''))
+        self.client_name = client_parts[1] if len(client_parts) > 1 else client_parts[0]
+
+        # Vincular con contacto
+        self.contacto = contacto if contacto else Contacto(self.client_name, "Desconocido", "No especificado", self.tipo)
+        self.name = self.contacto.nombre
+        self.cedula = self.contacto.cedula
+        self.position = self.contacto.puesto
+        self.tipo = self.contacto.tipo if self.contacto.tipo != "Desconocido" else self.tipo
+
+        # Asignar centro de costos
+        if self.tipo == 'BEN1_70':
+            self.cost_center = 'CostCenter_BEN1'
+        elif self.tipo == 'BEN2_62':
+            self.cost_center = 'CostCenter_BEN2'
+        elif self.tipo in ['AVNA VISITAS', 'Contratista/Visitante']:
+            self.cost_center = 'CostCenter_Visitante'
+        elif self.tipo in ['AVNA GB', 'AVNA ONBOARDING']:
+            self.cost_center = 'CostCenter_AVNA'
+        elif self.tipo == 'Practicante':
+            self.cost_center = 'CostCenter_Practicante'
+        else:
+            self.cost_center = 'CostCenter_Other'
+
+        # Inicializar costos
+        self.subsidy = 0
+        self.employee_payment = self.total
+        self.asoavna_contribution = 0
+
+    def aplicar_subsidios(self):
+        if self.tipo == 'BEN1_70' and self.producto == 'Almuerzo Ejecutivo Aseavna':
+            self.subsidy = 2100
+            self.employee_payment = 1000
+            self.asoavna_contribution = 155
+        elif self.tipo == 'BEN2_62' and self.producto == 'Almuerzo Ejecutivo Aseavna':
+            self.subsidy = 1800
+            self.employee_payment = 1300
+            self.asoavna_contribution = 155
+        elif self.tipo in ['AVNA VISITAS', 'Contratista/Visitante', 'AVNA GB', 'AVNA ONBOARDING', 'Practicante']:
+            self.subsidy = self.total
+            self.employee_payment = 0
+            self.asoavna_contribution = 0
+
+    def to_dict(self):
+        return {
+            'client': self.cliente,
+            'name': self.name,
+            'company': self.empresa,
+            'date': self.fecha,
+            'order': self.orden,
+            'quantity': self.cantidad,
+            'unit_price': self.precio_unitario,
+            'total': self.total,
+            'product': self.producto,
+            'seller': self.vendedor,
+            'cedula': self.cedula,
+            'position': self.position,
+            'tipo': self.tipo,
+            'cost_center': self.cost_center,
+            'subsidy': self.subsidy,
+            'employee_payment': self.employee_payment,
+            'asoavna_contribution': self.asoavna_contribution
+        }
+
+# Clase para manejar el reporte de ventas
+class ReporteVentas:
+    def __init__(self, sales_df, user_df):
+        self.contactos = self._procesar_contactos(user_df)
+        self.ventas = self._procesar_ventas(sales_df)
+        self._aplicar_subsidios()
+        self.datos = self._crear_dataframe()
+
+    def _procesar_contactos(self, user_df):
+        required_columns = ['Nombre', 'Cédula', 'Puesto', 'Tipo']
+        missing_columns = [col for col in required_columns if col not in user_df.columns]
+        if missing_columns:
+            raise ValueError(f"Columnas faltantes en users_data.csv: {', '.join(missing_columns)}")
+
+        user_df = user_df[user_df['Nombre'].notna() & (user_df['Nombre'].str.strip() != '')].copy()
+        contactos = {}
+        for _, row in user_df.iterrows():
+            contacto = Contacto(row['Nombre'], row['Cédula'], row['Puesto'], row['Tipo'])
+            contactos[contacto.normalized_name] = contacto
+        return contactos
+
+    def _procesar_ventas(self, sales_df):
+        ventas = []
+        for _, row in sales_df.iterrows():
+            cliente = row['Cliente']
+            client_parts = cliente.split(', ')
+            client_name = client_parts[1] if len(client_parts) > 1 else client_parts[0]
+            normalized_client_name = Contacto(client_name, None, None, None).normalized_name
+            contacto = self.contactos.get(normalized_client_name, None)
+
+            venta = Venta(
+                cliente=row['Cliente'],
+                empresa=row['Empresa'],
+                fecha=row['Fecha de la orden'],
+                orden=row['Orden'],
+                cantidad=row['Cant. ordenada'],
+                precio_unitario=row['Precio unitario'],
+                total=row['Total'],
+                producto=row['Variante del producto'],
+                vendedor=row['Vendedor'],
+                contacto=contacto
+            )
+            if venta.fecha and venta.total != 0:
+                ventas.append(venta)
+        return ventas
+
+    def _aplicar_subsidios(self):
+        for venta in self.ventas:
+            venta.aplicar_subsidios()
+
+    def _crear_dataframe(self):
+        datos = [venta.to_dict() for venta in self.ventas]
+        df = pd.DataFrame(datos)
+        df['key'] = df['order'] + '-' + df['client'] + '-' + df['product']
+        df = df.drop_duplicates(subset='key').drop(columns='key')
+        return df
+
+    def aggregate_data(self):
+        df = self.datos
+        revenue_by_client = df.groupby('client')['total'].sum().to_dict()
+        sales_by_date = df.groupby(df['date'].dt.strftime('%Y-%m-%d'))['total'].sum().to_dict()
+        product_distribution = df.groupby('product')['quantity'].sum().to_dict()
+        consumption_by_contact = df.groupby('client').apply(lambda x: x.to_dict('records')).to_dict()
+        cost_breakdown_by_tipo = df.groupby('tipo')[['subsidy', 'employee_payment']].sum().reset_index()
+        cost_breakdown_by_tipo['count'] = df.groupby('tipo').size()
+        return {
+            'revenue_by_client': revenue_by_client,
+            'sales_by_date': sales_by_date,
+            'product_distribution': product_distribution,
+            'consumption_by_contact': consumption_by_contact,
+            'cost_breakdown_by_tipo': cost_breakdown_by_tipo
+        }
+
 # Formatear números con abreviaturas
 def format_number(num):
     if not isinstance(num, (int, float)) or pd.isna(num):
@@ -21,162 +203,6 @@ def format_number(num):
     if abs(num) >= 1000:
         return f"{num / 1000:.1f}K"
     return f"{num:.0f}"
-
-# Normalizar nombres para coincidencias
-def normalize_name(name):
-    if not isinstance(name, str):
-        return ''
-    # Convertir a minúsculas, eliminar acentos y reemplazar caracteres especiales
-    name = name.strip().lower()
-    name = ''.join(c for c in unicodedata.normalize('NFD', name) if unicodedata.category(c) != 'Mn')
-    return name.replace(' ', '')
-
-# Procesar datos de usuarios
-def process_user_data(user_df):
-    # Verificar columnas requeridas
-    required_columns = ['Nombre', 'Cédula', 'Puesto', 'Tipo']
-    missing_columns = [col for col in required_columns if col not in user_df.columns]
-    if missing_columns:
-        raise ValueError(f"Columnas faltantes en users_data.csv: {', '.join(missing_columns)}")
-    
-    # Filtrar filas con Nombre válido
-    user_df = user_df[user_df['Nombre'].notna() & (user_df['Nombre'].str.strip() != '')].copy()
-    
-    # Crear columnas procesadas
-    user_df['name'] = user_df['Nombre']
-    user_df['cedula'] = user_df['Cédula'].astype(str).where(user_df['Cédula'].notna(), 'Desconocido')
-    user_df['position'] = user_df['Puesto'].where(user_df['Puesto'].notna(), 'No especificado')
-    user_df['tipo'] = user_df['Tipo'].where(user_df['Tipo'].notna(), 'Desconocido')
-    
-    # Normalizar nombres para vinculación
-    user_df['normalized_name'] = user_df['name'].apply(normalize_name)
-    
-    return user_df[['name', 'cedula', 'position', 'tipo', 'normalized_name']]
-
-# Procesar datos de ventas
-def process_sales_data(sales_df, user_df):
-    # Crear diccionario de usuarios para vinculación
-    user_map = {row['normalized_name']: {
-        'name': row['name'],
-        'cedula': row['cedula'],
-        'position': row['position'],
-        'tipo': row['tipo']
-    } for _, row in user_df.iterrows()}
-    
-    # Procesar filas de ventas
-    def process_row(row):
-        quantity = float(row['Cant. ordenada']) if pd.notna(row['Cant. ordenada']) else 0
-        unit_price = float(row['Precio unitario']) if pd.notna(row['Precio unitario']) else 0
-        total = float(row['Total']) if pd.notna(row['Total']) else 0
-        try:
-            date = pd.to_datetime(row['Fecha de la orden'], format='%Y-%m-%d %H:%M:%S')
-        except:
-            return None
-        
-        if not date or not row['Cliente']:
-            return None
-        
-        # Extraer tipo y nombre del cliente
-        client_parts = row['Cliente'].split(', ')
-        tipo = ('BEN1_70' if 'BEN1_70' in client_parts[0] else
-                'BEN2_62' if 'BEN2_62' in client_parts[0] else
-                client_parts[0].replace('ASEAVNA ', ''))
-        client_name = client_parts[1] if len(client_parts) > 1 else client_parts[0]
-        
-        # Normalizar nombre del cliente
-        normalized_client_name = normalize_name(client_name)
-        user_info = user_map.get(normalized_client_name, {
-            'name': client_name,
-            'cedula': 'Desconocido',
-            'position': 'No especificado',
-            'tipo': tipo
-        })
-        
-        # Definir centros de costos
-        if user_info['tipo'] == 'BEN1_70':
-            cost_center = 'CostCenter_BEN1'
-        elif user_info['tipo'] == 'BEN2_62':
-            cost_center = 'CostCenter_BEN2'
-        elif user_info['tipo'] in ['AVNA VISITAS', 'Contratista/Visitante']:
-            cost_center = 'CostCenter_Visitante'
-        elif user_info['tipo'] in ['AVNA GB', 'AVNA ONBOARDING']:
-            cost_center = 'CostCenter_AVNA'
-        elif user_info['tipo'] == 'Practicante':
-            cost_center = 'CostCenter_Practicante'
-        else:
-            cost_center = 'CostCenter_Other'
-        
-        return {
-            'client': client_name,
-            'name': user_info['name'],
-            'company': row['Empresa'] if pd.notna(row['Empresa']) else '',
-            'date': date,
-            'order': row['Orden'] if pd.notna(row['Orden']) else '',
-            'quantity': quantity,
-            'unit_price': unit_price,
-            'total': total,
-            'product': row['Variante del producto'] if pd.notna(row['Variante del producto']) else '',
-            'seller': row['Vendedor'] if pd.notna(row['Vendedor']) else '',
-            'cedula': user_info['cedula'],
-            'position': user_info['position'],
-            'tipo': user_info['tipo'],
-            'cost_center': cost_center
-        }
-    
-    # Aplicar procesamiento a todas las filas
-    processed_data = [process_row(row) for _, row in sales_df.iterrows()]
-    processed_data = [d for d in processed_data if d is not None]
-    
-    # Crear DataFrame y filtrar
-    processed_df = pd.DataFrame(processed_data)
-    processed_df = processed_df[processed_df['total'] != 0]
-    processed_df['key'] = processed_df['order'] + '-' + processed_df['client'] + '-' + processed_df['product']
-    processed_df = processed_df.drop_duplicates(subset='key').drop(columns='key')
-    
-    return processed_df
-
-# Aplicar subsidios
-def apply_subsidies(df):
-    df['subsidy'] = 0
-    df['employee_payment'] = df['total']
-    df['asoavna_contribution'] = 0
-
-    # Subsidios para BEN1_70
-    ben1_mask = (df['tipo'] == 'BEN1_70') & (df['product'] == 'Almuerzo Ejecutivo Aseavna')
-    df.loc[ben1_mask, 'subsidy'] = 2100
-    df.loc[ben1_mask, 'employee_payment'] = 1000
-    df.loc[ben1_mask, 'asoavna_contribution'] = 155
-
-    # Subsidios para BEN2_62
-    ben2_mask = (df['tipo'] == 'BEN2_62') & (df['product'] == 'Almuerzo Ejecutivo Aseavna')
-    df.loc[ben2_mask, 'subsidy'] = 1800
-    df.loc[ben2_mask, 'employee_payment'] = 1300
-    df.loc[ben2_mask, 'asoavna_contribution'] = 155
-
-    # Subsidios completos para tipos especiales (AVNA asume el costo)
-    special_types = ['AVNA VISITAS', 'Contratista/Visitante', 'AVNA GB', 'AVNA ONBOARDING', 'Practicante']
-    special_mask = df['tipo'].isin(special_types)
-    df.loc[special_mask, 'subsidy'] = df.loc[special_mask, 'total']
-    df.loc[special_mask, 'employee_payment'] = 0
-    df.loc[special_mask, 'asoavna_contribution'] = 0
-
-    return df
-
-# Agregar datos para visualizaciones
-def aggregate_data(df):
-    revenue_by_client = df.groupby('client')['total'].sum().to_dict()
-    sales_by_date = df.groupby(df['date'].dt.strftime('%Y-%m-%d'))['total'].sum().to_dict()
-    product_distribution = df.groupby('product')['quantity'].sum().to_dict()
-    consumption_by_contact = df.groupby('client').apply(lambda x: x.to_dict('records')).to_dict()
-    cost_breakdown_by_tipo = df.groupby('tipo')[['subsidy', 'employee_payment']].sum().reset_index()
-    cost_breakdown_by_tipo['count'] = df.groupby('tipo').size()
-    return {
-        'revenue_by_client': revenue_by_client,
-        'sales_by_date': sales_by_date,
-        'product_distribution': product_distribution,
-        'consumption_by_contact': consumption_by_contact,
-        'cost_breakdown_by_tipo': cost_breakdown_by_tipo
-    }
 
 # Cargar datos
 def load_data():
@@ -195,11 +221,10 @@ def main():
     if sales_df is None or user_df is None:
         return
 
-    # Procesar datos
+    # Procesar datos con clases
     try:
-        user_data = process_user_data(user_df)
-        sales_data = process_sales_data(sales_df, user_data)
-        sales_data = apply_subsidies(sales_data)
+        reporte = ReporteVentas(sales_df, user_df)
+        sales_data = reporte.datos
     except Exception as e:
         st.error(f"Error al procesar los datos: {e}")
         return
@@ -254,7 +279,7 @@ def main():
     )
 
     # Agregar datos
-    aggregated = aggregate_data(filtered_data)
+    aggregated = reporte.aggregate_data()
 
     # Preparar datos para gráficos
     revenue_chart_data = pd.DataFrame([
@@ -284,7 +309,7 @@ def main():
     st.header("Filtros")
     col1, col2, col3, col4 = st.columns(4)
     with col1:
-        unique_tipos = ['All'] + sorted(user_data['tipo'].unique())
+        unique_tipos = ['All'] + sorted(sales_data['tipo'].unique())
         st.session_state.selected_tipo = st.selectbox("Tipo", unique_tipos, index=unique_tipos.index(st.session_state.selected_tipo))
     with col2:
         start_date, end_date = st.date_input(

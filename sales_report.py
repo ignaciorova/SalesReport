@@ -85,11 +85,14 @@ class Venta:
         self.is_subsidized = (self.producto == 'Almuerzo Ejecutivo Aseavna')
         self.subsidy = 0
         self.employee_payment = self.total
+        self.employee_payment_base = 0  # Inicializamos por defecto
         self.asoavna_contribution = 0
         self.asoavna_commission = 0
         self.iva = 0
         self.client_credit = 0
         self.aseavna_account = 0
+        self.base_price = 0  # Inicializamos por defecto
+        self.iva_calculated = 0  # Inicializamos por defecto
 
     def aplicar_subsidios_y_comisiones(self):
         # Para todos los productos, el precio total incluye el 13% IVA
@@ -116,6 +119,13 @@ class Venta:
                 self.employee_payment_base = 0
                 self.asoavna_contribution = 0
                 self.iva = 0  # No se especifica IVA para estos tipos
+            else:
+                # Para cualquier otro tipo no esperado, tratamos como no subsidiado
+                self.subsidy = 0
+                self.employee_payment = self.total
+                self.employee_payment_base = self.base_price
+                self.asoavna_contribution = 0
+                self.iva = self.iva_calculated
             self.asoavna_commission = 0  # No se aplica comisión adicional aquí, ya que la contribución es fija (155)
         else:
             # Para productos no subsidiados (ej. frescos)
@@ -445,7 +455,7 @@ def main():
         ]
     if st.session_state.selected_cost_center != 'All':
         filtered_data = filtered_data[filtered_data['cost_center'] == st.session_state.selected_cost_center]
-    if st.session_state.selected_client != 'All':
+    if st.session_state06/16/2025if st.session_state.selected_client != 'All':
         filtered_data = filtered_data[filtered_data['client'] == st.session_state.selected_client]
 
     filtered_comisiones = comisiones_no_subsidiadas.copy()

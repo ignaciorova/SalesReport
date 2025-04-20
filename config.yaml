@@ -1,0 +1,18 @@
+iva_rates: [0, 13]
+cost_centers:
+  BEN1_70: CostCenter_BEN1
+  BEN2_62: CostCenter_BEN2
+  AVNA VISITAS: CostCenter_Visitante
+  Contratista/Visitante: CostCenter_Visitante
+  AVNA GB: CostCenter_AVNA_GB
+  AVNA ONBOARDING: CostCenter_AVNA_Onboarding
+  Practicante: CostCenter_Practicante
+subsidy_rules:
+  BEN1_70:
+    subsidy: 2100
+    employee_payment: 1000
+    commission: 150
+  BEN2_62:
+    subsidy: 1800
+    employee_payment: 1300
+    commission: 150

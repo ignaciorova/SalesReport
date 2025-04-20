@@ -260,7 +260,6 @@ class ReporteVentas:
         return reportes
 
     def aggregate_data(self, filtered_df):
-        # Optimización: Usar operaciones vectorizadas y minimizar copias
         # Ingresos por cliente
         revenue_by_client = (filtered_df.groupby('client')
                             .agg({'total': 'sum', 'quantity': 'sum'})
@@ -306,7 +305,6 @@ def format_number(num):
     return f"{num:.0f}"
 
 # Cargar datos
-@st.cache_data
 def load_data():
     try:
         sales_df = pd.read_csv('sales_data.csv')
@@ -361,12 +359,17 @@ def main():
     if not st.session_state.logged_in:
         return
 
-    # Cargar datos
-    sales_df, user_df = load_data()
+    # Cargar datos y almacenar en session_state
+    if 'loaded_data' not in st.session_state:
+        sales_df, user_df = load_data()
+        st.session_state.loaded_data = (sales_df, user_df)
+    else:
+        sales_df, user_df = st.session_state.loaded_data
+
     if sales_df is None or user_df is None:
         return
 
-    # Procesar datos con clases y almacenar en caché
+    # Procesar datos con clases y almacenar en session_state
     if 'reporte' not in st.session_state:
         try:
             st.session_state.reporte = ReporteVentas(sales_df, user_df)

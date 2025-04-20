@@ -1,8 +1,5 @@
-streamlit==1.43.2
-pandas==2.2.3
-plotly==5.24.1
-pdfkit==1.0.0
-xlsxwriter==3.2.3
-pyyaml>=6.0
-python-dotenv>=1.0.0
+streamlit
+pandas
+plotly
 python-dotenv
+pdfkit

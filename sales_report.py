@@ -259,16 +259,33 @@ class ReporteVentas:
             }
         return reportes
 
-    @st.cache_data
     def aggregate_data(self, filtered_df):
-        revenue_by_client = (filtered_df.groupby('client')['total'].sum() * filtered_df.groupby('client')['quantity'].sum()).to_dict()
-        sales_by_date = (filtered_df.groupby(filtered_df['date'].dt.strftime('%Y-%m-%d'))['total'].sum() * filtered_df.groupby(filtered_df['date'].dt.strftime('%Y-%m-%d'))['quantity'].sum()).to_dict()
+        # Optimización: Usar operaciones vectorizadas y minimizar copias
+        # Ingresos por cliente
+        revenue_by_client = (filtered_df.groupby('client')
+                            .agg({'total': 'sum', 'quantity': 'sum'})
+                            .apply(lambda x: x['total'] * x['quantity'], axis=1)
+                            .to_dict())
+
+        # Ventas por fecha
+        sales_by_date_df = (filtered_df.groupby(filtered_df['date'].dt.strftime('%Y-%m-%d'))
+                           .agg({'total': 'sum', 'quantity': 'sum'}))
+        sales_by_date = (sales_by_date_df['total'] * sales_by_date_df['quantity']).to_dict()
+
+        # Distribución de productos
         product_distribution = filtered_df.groupby('product')['quantity'].sum().to_dict()
+
+        # Consumo por contacto
         consumption_by_contact = filtered_df.groupby('client').apply(lambda x: x.to_dict('records')).to_dict()
-        cost_breakdown_by_tipo = filtered_df.groupby('tipo')[['subsidy', 'employee_payment']].sum().reset_index()
-        cost_breakdown_by_tipo['subsidy'] = filtered_df.groupby('tipo')['subsidy'].sum() * filtered_df.groupby('tipo')['quantity'].sum()
-        cost_breakdown_by_tipo['employee_payment'] = filtered_df.groupby('tipo')['employee_payment'].sum() * filtered_df.groupby('tipo')['quantity'].sum()
-        cost_breakdown_by_tipo['count'] = filtered_df.groupby('tipo')['quantity'].sum()
+
+        # Desglose de costos por tipo
+        cost_breakdown_by_tipo = (filtered_df.groupby('tipo')
+                                 .agg({'subsidy': 'sum', 'employee_payment': 'sum', 'quantity': 'sum'})
+                                 .reset_index())
+        cost_breakdown_by_tipo['subsidy'] = cost_breakdown_by_tipo['subsidy'] * cost_breakdown_by_tipo['quantity']
+        cost_breakdown_by_tipo['employee_payment'] = cost_breakdown_by_tipo['employee_payment'] * cost_breakdown_by_tipo['quantity']
+        cost_breakdown_by_tipo['count'] = cost_breakdown_by_tipo['quantity']
+
         return {
             'revenue_by_client': revenue_by_client,
             'sales_by_date': sales_by_date,

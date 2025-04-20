@@ -7,9 +7,10 @@ import pdfkit
 import base64
 from io import BytesIO
 import unicodedata
+import hashlib
 
 # Configuración de la página
-st.set_page_config(page_title="Informe de Análisis de Ventas", layout="wide")
+st.set_page_config(page_title="Sistema de Reportes de Ventas - ASEAVNA", layout="wide")
 
 # Clase para manejar contactos
 class Contacto:
@@ -80,14 +81,18 @@ class Venta:
         else:
             self.cost_center = 'CostCenter_Other'
 
-        # Inicializar costos
+        # Inicializar costos y estado del subsidio
+        self.is_subsidized = (self.producto == 'Almuerzo Ejecutivo Aseavna')
         self.subsidy = 0
         self.employee_payment = self.total
         self.asoavna_contribution = 0
+        self.asoavna_commission = 0  # Comisión del 5% para productos no subsidiados
+        self.client_credit = 0
+        self.aseavna_account = 0
 
-    def aplicar_subsidios(self):
-        # Solo aplicar subsidios si el producto es "Almuerzo Ejecutivo Aseavna"
-        if self.producto == 'Almuerzo Ejecutivo Aseavna':
+    def aplicar_subsidios_y_comisiones(self):
+        # Calcular subsidios para Almuerzo Ejecutivo Aseavna
+        if self.is_subsidized:
             if self.tipo == 'BEN1_70':
                 self.subsidy = 2100  # 67.74% de 3100
                 self.employee_payment = 1000
@@ -101,10 +106,15 @@ class Venta:
                 self.employee_payment = 0
                 self.asoavna_contribution = 0
         else:
-            # Para otros productos, el empleado paga el total y no hay subsidio ni contribución
+            # Para productos no subsidiados, calcular el 5% de comisión para Aseavna
             self.subsidy = 0
             self.employee_payment = self.total
             self.asoavna_contribution = 0
+            self.asoavna_commission = self.total * 0.05  # 5% de comisión
+
+        # Asignar a las cuentas
+        self.client_credit = self.employee_payment  # Lo que paga el cliente va a su cuenta de crédito
+        self.aseavna_account = self.subsidy + self.asoavna_contribution + self.asoavna_commission  # Subsidio, contribución y comisión van a la cuenta de Aseavna
 
     def to_dict(self):
         return {
@@ -122,9 +132,13 @@ class Venta:
             'position': self.position,
             'tipo': self.tipo,
             'cost_center': self.cost_center,
+            'is_subsidized': self.is_subsidized,
             'subsidy': self.subsidy,
             'employee_payment': self.employee_payment,
-            'asoavna_contribution': self.asoavna_contribution
+            'asoavna_contribution': self.asoavna_contribution,
+            'asoavna_commission': self.asoavna_commission,
+            'client_credit': self.client_credit,
+            'aseavna_account': self.aseavna_account
         }
 
 # Clase para manejar el reporte de ventas
@@ -132,9 +146,11 @@ class ReporteVentas:
     def __init__(self, sales_df, user_df):
         self.contactos = self._procesar_contactos(user_df)
         self.ventas = self._procesar_ventas(sales_df)
-        self._aplicar_subsidios()
+        self._aplicar_subsidios_y_comisiones()
         self.datos = self._crear_dataframe()
         self.facturacion = self._calcular_facturacion()
+        self.comisiones_no_subsidiadas = self._calcular_comisiones_no_subsidiadas()
+        self.reportes_individuales = self._generar_reportes_individuales()
 
     def _procesar_contactos(self, user_df):
         required_columns = ['Nombre', 'Cédula', 'Puesto', 'Tipo']
@@ -174,9 +190,9 @@ class ReporteVentas:
                 ventas.append(venta)
         return ventas
 
-    def _aplicar_subsidios(self):
+    def _aplicar_subsidios_y_comisiones(self):
         for venta in self.ventas:
-            venta.aplicar_subsidios()
+            venta.aplicar_subsidios_y_comisiones()
 
     def _crear_dataframe(self):
         datos = [venta.to_dict() for venta in self.ventas]
@@ -194,7 +210,7 @@ class ReporteVentas:
         }
 
         for _, row in df.iterrows():
-            if row['product'] != 'Almuerzo Ejecutivo Aseavna':
+            if not row['is_subsidized']:
                 continue
             if row['tipo'] == 'BEN1_70':
                 facturacion['BEN1_70']['avna'] += row['subsidy']
@@ -220,14 +236,43 @@ class ReporteVentas:
             'facturar_aseavna': facturar_aseavna
         }
 
-    def aggregate_data(self):
+    def _calcular_comisiones_no_subsidiadas(self):
         df = self.datos
-        revenue_by_client = df.groupby('client')['total'].sum().to_dict()
-        sales_by_date = df.groupby(df['date'].dt.strftime('%Y-%m-%d'))['total'].sum().to_dict()
-        product_distribution = df.groupby('product')['quantity'].sum().to_dict()
-        consumption_by_contact = df.groupby('client').apply(lambda x: x.to_dict('records')).to_dict()
-        cost_breakdown_by_tipo = df.groupby('tipo')[['subsidy', 'employee_payment']].sum().reset_index()
-        cost_breakdown_by_tipo['count'] = df.groupby('tipo').size()
+        comisiones = []
+        for _, row in df.iterrows():
+            if not row['is_subsidized']:
+                comisiones.append({
+                    'client': row['client'],
+                    'product': row['product'],
+                    'total': row['total'],
+                    'asoavna_commission': row['asoavna_commission']
+                })
+        return pd.DataFrame(comisiones)
+
+    def _generar_reportes_individuales(self):
+        df = self.datos
+        reportes = {}
+        for client, group in df.groupby('client'):
+            total_client_credit = group['client_credit'].sum()
+            total_aseavna_account = group['aseavna_account'].sum()
+            subsidized = group[group['is_subsidized']].copy()
+            non_subsidized = group[~group['is_subsidized']].copy()
+            reportes[client] = {
+                'transacciones': group,
+                'subsidized': subsidized,
+                'non_subsidized': non_subsidized,
+                'total_client_credit': total_client_credit,
+                'total_aseavna_account': total_aseavna_account
+            }
+        return reportes
+
+    def aggregate_data(self, filtered_df):
+        revenue_by_client = filtered_df.groupby('client')['total'].sum().to_dict()
+        sales_by_date = filtered_df.groupby(filtered_df['date'].dt.strftime('%Y-%m-%d'))['total'].sum().to_dict()
+        product_distribution = filtered_df.groupby('product')['quantity'].sum().to_dict()
+        consumption_by_contact = filtered_df.groupby('client').apply(lambda x: x.to_dict('records')).to_dict()
+        cost_breakdown_by_tipo = filtered_df.groupby('tipo')[['subsidy', 'employee_payment']].sum().reset_index()
+        cost_breakdown_by_tipo['count'] = filtered_df.groupby('tipo').size()
         return {
             'revenue_by_client': revenue_by_client,
             'sales_by_date': sales_by_date,
@@ -257,8 +302,34 @@ def load_data():
         st.error(f"Ocurrió un error al cargar los datos: {e}. Asegúrate de que los archivos sales_data.csv y users_data.csv estén disponibles y tengan el formato correcto.")
         return None, None
 
+# Sistema de Login
+def check_login(username, password):
+    # Simulación de un usuario/contraseña (en un sistema real, esto estaría en una base de datos)
+    stored_users = {
+        'admin': hashlib.sha256('admin123'.encode()).hexdigest()
+    }
+    hashed_password = hashlib.sha256(password.encode()).hexdigest()
+    return username in stored_users and stored_users[username] == hashed_password
+
 # Main app
 def main():
+    # Sistema de Login
+    if 'logged_in' not in st.session_state:
+        st.session_state.logged_in = False
+
+    if not st.session_state.logged_in:
+        st.title("Iniciar Sesión - Sistema de Reportes ASEAVNA")
+        username = st.text_input("Usuario")
+        password = st.text_input("Contraseña", type="password")
+        if st.button("Iniciar Sesión"):
+            if check_login(username, password):
+                st.session_state.logged_in = True
+                st.success("Inicio de sesión exitoso")
+                st.rerun()
+            else:
+                st.error("Usuario o contraseña incorrectos")
+        return
+
     # Cargar datos
     sales_df, user_df = load_data()
     if sales_df is None or user_df is None:
@@ -269,6 +340,8 @@ def main():
         reporte = ReporteVentas(sales_df, user_df)
         sales_data = reporte.datos
         facturacion = reporte.facturacion
+        comisiones_no_subsidiadas = reporte.comisiones_no_subsidiadas
+        reportes_individuales = reporte.reportes_individuales
     except Exception as e:
         st.error(f"Error al procesar los datos: {e}")
         return
@@ -284,6 +357,8 @@ def main():
         st.session_state.search_query = ''
     if 'selected_cost_center' not in st.session_state:
         st.session_state.selected_cost_center = 'All'
+    if 'selected_client' not in st.session_state:
+        st.session_state.selected_client = 'All'
     if 'current_page' not in st.session_state:
         st.session_state.current_page = 1
     if 'sort_key' not in st.session_state:
@@ -297,7 +372,9 @@ def main():
             'product_pie': True,
             'cost_breakdown': True,
             'consumption_table': True,
-            'facturacion_table': True
+            'facturacion_table': True,
+            'individual_report': True,
+            'non_subsidized_commissions': True
         }
 
     # Filtrar datos
@@ -316,6 +393,13 @@ def main():
         ]
     if st.session_state.selected_cost_center != 'All':
         filtered_data = filtered_data[filtered_data['cost_center'] == st.session_state.selected_cost_center]
+    if st.session_state.selected_client != 'All':
+        filtered_data = filtered_data[filtered_data['client'] == st.session_state.selected_client]
+
+    # Filtrar comisiones no subsidiadas
+    filtered_comisiones = comisiones_no_subsidiadas.copy()
+    if st.session_state.selected_client != 'All':
+        filtered_comisiones = filtered_comisiones[filtered_comisiones['client'] == st.session_state.selected_client]
 
     # Ordenar datos
     filtered_data = filtered_data.sort_values(
@@ -323,15 +407,15 @@ def main():
         ascending=(st.session_state.sort_direction == 'asc')
     )
 
-    # Agregar datos
-    aggregated = reporte.aggregate_data()
+    # Agregar datos (usar datos filtrados para gráficos)
+    aggregated = reporte.aggregate_data(filtered_data)
 
     # Preparar datos para gráficos
     revenue_chart_data = pd.DataFrame([
         {'client': k, 'revenue': v} for k, v in aggregated['revenue_by_client'].items()
     ])
-    total_revenue = revenue_chart_data['revenue'].sum()
-    revenue_chart_data['percentage'] = (revenue_chart_data['revenue'] / total_revenue * 100).round(1)
+    total_revenue = revenue_chart_data['revenue'].sum() if not revenue_chart_data.empty else 0
+    revenue_chart_data['percentage'] = (revenue_chart_data['revenue'] / total_revenue * 100).round(1) if total_revenue > 0 else 0
     revenue_chart_data['client'] = revenue_chart_data['client'].apply(
         lambda x: x[:17] + '...' if len(x) > 20 else x
     )
@@ -347,12 +431,18 @@ def main():
     cost_breakdown_data = aggregated['cost_breakdown_by_tipo']
 
     # Título y descripción
-    st.title("Informe de Análisis de Ventas")
-    st.markdown("Generado el 19 de abril de 2025 para C2-ASEAVNA, Grecia, Costa Rica")
+    st.title("Sistema de Reportes de Ventas - ASEAVNA")
+    st.markdown("**Generado el 19 de abril de 2025 para C2-ASEAVNA, Grecia, Costa Rica**")
+    st.markdown("Sistema profesional para la gestión de ventas, subsidios y comisiones.")
+
+    # Botón de cierre de sesión
+    if st.button("Cerrar Sesión"):
+        st.session_state.logged_in = False
+        st.rerun()
 
     # Filtros
-    st.header("Filtros")
-    col1, col2, col3, col4 = st.columns(4)
+    st.header("Filtros de Reporte")
+    col1, col2, col3, col4, col5 = st.columns(5)
     with col1:
         unique_tipos = ['All'] + sorted(sales_data['tipo'].unique())
         st.session_state.selected_tipo = st.selectbox("Tipo", unique_tipos, index=unique_tipos.index(st.session_state.selected_tipo))
@@ -370,6 +460,9 @@ def main():
     with col4:
         unique_cost_centers = ['All'] + sorted(sales_data['cost_center'].unique())
         st.session_state.selected_cost_center = st.selectbox("Centro de Costos", unique_cost_centers, index=unique_cost_centers.index(st.session_state.selected_cost_center))
+    with col5:
+        unique_clients = ['All'] + sorted(sales_data['client'].unique())
+        st.session_state.selected_client = st.selectbox("Cliente", unique_clients, index=unique_clients.index(st.session_state.selected_client))
 
     if st.button("Restablecer Filtros"):
         st.session_state.selected_tipo = 'All'
@@ -377,11 +470,12 @@ def main():
         st.session_state.date_range_end = sales_data['date'].max().date()
         st.session_state.search_query = ''
         st.session_state.selected_cost_center = 'All'
+        st.session_state.selected_client = 'All'
         st.rerun()
 
     # Opciones de Exportación
     st.header("Opciones de Exportación")
-    col_export = st.columns(6)
+    col_export = st.columns(8)
     with col_export[0]:
         st.session_state.export_options['revenue_chart'] = st.checkbox("Gráfico de Ingresos por Cliente", value=st.session_state.export_options['revenue_chart'])
     with col_export[1]:
@@ -394,12 +488,17 @@ def main():
         st.session_state.export_options['consumption_table'] = st.checkbox("Tabla de Consumo", value=st.session_state.export_options['consumption_table'])
     with col_export[5]:
         st.session_state.export_options['facturacion_table'] = st.checkbox("Tabla de Facturación", value=st.session_state.export_options['facturacion_table'])
+    with col_export[6]:
+        st.session_state.export_options['individual_report'] = st.checkbox("Reporte Individual", value=st.session_state.export_options['individual_report'])
+    with col_export[7]:
+        st.session_state.export_options['non_subsidized_commissions'] = st.checkbox("Comisiones No Subsidiadas", value=st.session_state.export_options['non_subsidized_commissions'])
 
     col_btn = st.columns(3)
     with col_btn[0]:
         if st.button("Exportar a Excel"):
             buffer = BytesIO()
             with pd.ExcelWriter(buffer, engine='xlsxwriter') as writer:
+                # Pestaña: Resumen
                 total_revenue = filtered_data['total'].sum()
                 total_subsidies = filtered_data['subsidy'].sum()
                 average_transaction = total_revenue / len(filtered_data) if len(filtered_data) > 0 else 0
@@ -412,9 +511,13 @@ def main():
                     ['Clientes Únicos', filtered_data['client'].nunique()]
                 ], columns=['Métrica', 'Valor'])
                 summary_data.to_excel(writer, sheet_name='Resumen', index=False)
+
+                # Pestaña: Consumo
                 if st.session_state.export_options['consumption_table']:
-                    export_df = filtered_data[['client', 'name', 'cedula', 'position', 'tipo', 'date', 'product', 'quantity', 'total', 'subsidy', 'employee_payment', 'cost_center']]
+                    export_df = filtered_data[['client', 'name', 'cedula', 'position', 'tipo', 'date', 'product', 'quantity', 'total', 'subsidy', 'employee_payment', 'cost_center', 'is_subsidized', 'client_credit', 'aseavna_account', 'asoavna_commission']]
                     export_df.to_excel(writer, sheet_name='Consumo', index=False)
+
+                # Pestaña: Facturación
                 if st.session_state.export_options['facturacion_table']:
                     facturacion_data = pd.DataFrame([
                         ['Facturar a AVNA (BEN1_70)', f"₡{format_number(facturacion['facturacion']['BEN1_70']['avna'])}", facturacion['facturacion']['BEN1_70']['count']],
@@ -427,22 +530,34 @@ def main():
                         ['Total a Facturar a Aseavna', f"₡{format_number(facturacion['facturar_aseavna'])}", '']
                     ], columns=['Concepto', 'Monto', 'Transacciones'])
                     facturacion_data.to_excel(writer, sheet_name='Facturación', index=False)
+
+                # Pestaña: Reportes Individuales
+                if st.session_state.export_options['individual_report']:
+                    for client, datos in reportes_individuales.items():
+                        client_df = datos['transacciones'][['date', 'product', 'quantity', 'total', 'subsidy', 'employee_payment', 'asoavna_contribution', 'client_credit', 'aseavna_account', 'asoavna_commission']]
+                        client_df.to_excel(writer, sheet_name=f'Cliente_{client[:20]}', index=False)
+
+                # Pestaña: Comisiones No Subsidiadas
+                if st.session_state.export_options['non_subsidized_commissions']:
+                    comisiones_df = filtered_comisiones[['client', 'product', 'total', 'asoavna_commission']]
+                    comisiones_df.to_excel(writer, sheet_name='Comisiones_No_Subsidiadas', index=False)
+
             buffer.seek(0)
             st.download_button(
                 label="Descargar Excel",
                 data=buffer,
-                file_name=f"informe_ventas_{st.session_state.selected_tipo}_{datetime.now().strftime('%Y-%m-%d')}.xlsx",
+                file_name=f"reporte_ventas_aseavna_{datetime.now().strftime('%Y-%m-%d')}.xlsx",
                 mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
             )
 
     with col_btn[1]:
         if st.button("Exportar a CSV"):
-            export_df = filtered_data[['client', 'name', 'cedula', 'position', 'tipo', 'date', 'product', 'quantity', 'total', 'subsidy', 'employee_payment', 'cost_center']]
+            export_df = filtered_data[['client', 'name', 'cedula', 'position', 'tipo', 'date', 'product', 'quantity', 'total', 'subsidy', 'employee_payment', 'cost_center', 'is_subsidized', 'client_credit', 'aseavna_account', 'asoavna_commission']]
             csv = export_df.to_csv(index=False)
             st.download_button(
                 label="Descargar CSV",
                 data=csv,
-                file_name=f"informe_ventas_{st.session_state.selected_tipo}_{datetime.now().strftime('%Y-%m-%d')}.csv",
+                file_name=f"reporte_ventas_aseavna_{datetime.now().strftime('%Y-%m-%d')}.csv",
                 mime="text/csv"
             )
 
@@ -451,13 +566,21 @@ def main():
             st.warning("La exportación a PDF requiere la instalación de pdfkit y wkhtmltopdf. Por favor, configura tu entorno para habilitar esta funcionalidad.")
 
     # Resumen
-    st.header("Resumen")
-    st.write(f"Ingresos Totales: ₡{format_number(filtered_data['total'].sum())}")
-    st.write(f"Subsidios Totales: ₡{format_number(filtered_data['subsidy'].sum())}")
-    st.write(f"Transacciones Totales: {len(filtered_data)}")
-    st.write(f"Clientes Únicos: {filtered_data['client'].nunique()}")
+    st.header("Resumen General")
+    col_summary = st.columns(5)
+    with col_summary[0]:
+        st.metric("Ingresos Totales", f"₡{format_number(filtered_data['total'].sum())}")
+    with col_summary[1]:
+        st.metric("Subsidios Totales", f"₡{format_number(filtered_data['subsidy'].sum())}")
+    with col_summary[2]:
+        st.metric("Transacciones Totales", len(filtered_data))
+    with col_summary[3]:
+        st.metric("Clientes Únicos", filtered_data['client'].nunique())
+    with col_summary[4]:
+        st.metric("Comisión Aseavna (No Subsidiados)", f"₡{format_number(filtered_comisiones['asoavna_commission'].sum())}")
+
     st.markdown(
-        f"Dato Interesante: {'Johanna Alfaro Quiros (BEN2_62) tiene una alta tasa de devoluciones, lo que sugiere problemas potenciales con la precisión o satisfacción de los pedidos.' if st.session_state.selected_tipo in ['BEN2_62', 'All'] else 'No se observaron patrones de devolución notables para este grupo.'}"
+        f"**Dato Interesante:** {'Johanna Alfaro Quiros (BEN2_62) tiene una alta tasa de devoluciones, lo que sugiere problemas potenciales con la precisión o satisfacción de los pedidos.' if st.session_state.selected_tipo in ['BEN2_62', 'All'] else 'No se observaron patrones de devolución notables para este grupo.'}"
     )
 
     # Desglose de Facturación
@@ -472,38 +595,96 @@ def main():
     st.write(f"Contribución Aseavna (5%): ₡{format_number(facturacion['aseavna_contribution'])}")
     st.write(f"Total a Facturar a Aseavna: ₡{format_number(facturacion['facturar_aseavna'])}")
 
+    # Comisiones de Productos No Subsidiados
+    st.header("Comisiones de Productos No Subsidiados (5% Aseavna)")
+    st.write("Nota: Se aplica una comisión del 5% a todos los productos no subsidiados (ej. Coca-Cola).")
+    if not filtered_comisiones.empty:
+        comisiones_display = filtered_comisiones.copy()
+        comisiones_display['total'] = comisiones_display['total'].apply(format_number)
+        comisiones_display['asoavna_commission'] = comisiones_display['asoavna_commission'].apply(format_number)
+        st.dataframe(comisiones_display, use_container_width=True)
+    else:
+        st.write("No hay transacciones de productos no subsidiados con los filtros actuales.")
+
+    # Reporte Individual por Cliente
+    if st.session_state.selected_client != 'All':
+        st.header(f"Reporte Individual: {st.session_state.selected_client}")
+        client_data = reportes_individuales.get(st.session_state.selected_client, None)
+        if client_data:
+            col_client = st.columns(2)
+            with col_client[0]:
+                st.metric("Total en Cuenta de Crédito del Cliente", f"₡{format_number(client_data['total_client_credit'])}")
+            with col_client[1]:
+                st.metric("Total en Cuenta de Aseavna", f"₡{format_number(client_data['total_aseavna_account'])}")
+
+            # Transacciones Subsidiadas
+            st.subheader("Transacciones Subsidiadas (Almuerzo Ejecutivo Aseavna)")
+            subsidized_df = client_data['subsidized'][['date', 'product', 'quantity', 'total', 'subsidy', 'employee_payment', 'asoavna_contribution', 'client_credit', 'aseavna_account']]
+            subsidized_df['date'] = subsidized_df['date'].dt.strftime('%Y-%m-%d')
+            subsidized_df['total'] = subsidized_df['total'].apply(format_number)
+            subsidized_df['subsidy'] = subsidized_df['subsidy'].apply(format_number)
+            subsidized_df['employee_payment'] = subsidized_df['employee_payment'].apply(format_number)
+            subsidized_df['asoavna_contribution'] = subsidized_df['asoavna_contribution'].apply(format_number)
+            subsidized_df['client_credit'] = subsidized_df['client_credit'].apply(format_number)
+            subsidized_df['aseavna_account'] = subsidized_df['aseavna_account'].apply(format_number)
+            st.dataframe(subsidized_df, use_container_width=True)
+
+            # Transacciones No Subsidiadas
+            st.subheader("Transacciones No Subsidiadas")
+            non_subsidized_df = client_data['non_subsidized'][['date', 'product', 'quantity', 'total', 'subsidy', 'employee_payment', 'asoavna_commission', 'client_credit', 'aseavna_account']]
+            non_subsidized_df['date'] = non_subsidized_df['date'].dt.strftime('%Y-%m-%d')
+            non_subsidized_df['total'] = non_subsidized_df['total'].apply(format_number)
+            non_subsidized_df['subsidy'] = non_subsidized_df['subsidy'].apply(format_number)
+            non_subsidized_df['employee_payment'] = non_subsidized_df['employee_payment'].apply(format_number)
+            non_subsidized_df['asoavna_commission'] = non_subsidized_df['asoavna_commission'].apply(format_number)
+            non_subsidized_df['client_credit'] = non_subsidized_df['client_credit'].apply(format_number)
+            non_subsidized_df['aseavna_account'] = non_subsidized_df['aseavna_account'].apply(format_number)
+            st.dataframe(non_subsidized_df, use_container_width=True)
+
     # Gráficos
     if st.session_state.export_options['revenue_chart']:
         st.header("Ingresos por Cliente")
-        fig = px.bar(revenue_chart_data, x='client', y='revenue', text='percentage',
-                     labels={'revenue': 'Ingresos (₡)', 'client': 'Cliente', 'percentage': 'Porcentaje (%)'},
-                     color_discrete_sequence=['#1F77B4'])
-        fig.update_traces(texttemplate='%{text}%', textposition='outside')
-        fig.update_layout(yaxis_tickformat=',.0f')
-        st.plotly_chart(fig, use_container_width=True)
+        if not revenue_chart_data.empty:
+            fig = px.bar(revenue_chart_data, x='client', y='revenue', text='percentage',
+                         labels={'revenue': 'Ingresos (₡)', 'client': 'Cliente', 'percentage': 'Porcentaje (%)'},
+                         color_discrete_sequence=['#1F77B4'])
+            fig.update_traces(texttemplate='%{text}%', textposition='outside')
+            fig.update_layout(yaxis_tickformat=',.0f')
+            st.plotly_chart(fig, use_container_width=True)
+        else:
+            st.write("No hay datos para mostrar con los filtros actuales.")
 
     if st.session_state.export_options['sales_trend']:
         st.header("Tendencia de Ventas Diarias")
-        fig = px.line(sales_trend_data, x='date', y='revenue',
-                      labels={'revenue': 'Ingresos (₡)', 'date': 'Fecha'},
-                      color_discrete_sequence=['#FF7F0E'])
-        fig.update_layout(yaxis_tickformat=',.0f')
-        st.plotly_chart(fig, use_container_width=True)
+        if not sales_trend_data.empty:
+            fig = px.line(sales_trend_data, x='date', y='revenue',
+                          labels={'revenue': 'Ingresos (₡)', 'date': 'Fecha'},
+                          color_discrete_sequence=['#FF7F0E'])
+            fig.update_layout(yaxis_tickformat=',.0f')
+            st.plotly_chart(fig, use_container_width=True)
+        else:
+            st.write("No hay datos para mostrar con los filtros actuales.")
 
     if st.session_state.export_options['product_pie']:
         st.header("Distribución de Productos")
-        fig = px.pie(product_pie_data, names='name', values='value',
-                     color_discrete_sequence=['#2CA02C', '#D62728', '#9467BD'])
-        st.plotly_chart(fig, use_container_width=True)
+        if not product_pie_data.empty:
+            fig = px.pie(product_pie_data, names='name', values='value',
+                         color_discrete_sequence=['#2CA02C', '#D62728', '#9467BD'])
+            st.plotly_chart(fig, use_container_width=True)
+        else:
+            st.write("No hay datos para mostrar con los filtros actuales.")
 
     if st.session_state.export_options['cost_breakdown']:
         st.header("Desglose de Costos por Tipo")
-        fig = go.Figure(data=[
-            go.Bar(name='Subsidio', x=cost_breakdown_data['tipo'], y=cost_breakdown_data['subsidy'], marker_color='#1F77B4'),
-            go.Bar(name='Pago Empleado', x=cost_breakdown_data['tipo'], y=cost_breakdown_data['employee_payment'], marker_color='#FF7F0E')
-        ])
-        fig.update_layout(barmode='stack', yaxis_title='Monto (₡)', xaxis_title='Tipo', yaxis_tickformat=',.0f')
-        st.plotly_chart(fig, use_container_width=True)
+        if not cost_breakdown_data.empty:
+            fig = go.Figure(data=[
+                go.Bar(name='Subsidio', x=cost_breakdown_data['tipo'], y=cost_breakdown_data['subsidy'], marker_color='#1F77B4'),
+                go.Bar(name='Pago Empleado', x=cost_breakdown_data['tipo'], y=cost_breakdown_data['employee_payment'], marker_color='#FF7F0E')
+            ])
+            fig.update_layout(barmode='stack', yaxis_title='Monto (₡)', xaxis_title='Tipo', yaxis_tickformat=',.0f')
+            st.plotly_chart(fig, use_container_width=True)
+        else:
+            st.write("No hay datos para mostrar con los filtros actuales.")
 
     # Tabla de Consumo
     if st.session_state.export_options['consumption_table']:
@@ -519,6 +700,10 @@ def main():
         paginated_data['total'] = paginated_data['total'].apply(format_number)
         paginated_data['subsidy'] = paginated_data['subsidy'].apply(format_number)
         paginated_data['employee_payment'] = paginated_data['employee_payment'].apply(format_number)
+        paginated_data['asoavna_contribution'] = paginated_data['asoavna_contribution'].apply(format_number)
+        paginated_data['asoavna_commission'] = paginated_data['asoavna_commission'].apply(format_number)
+        paginated_data['client_credit'] = paginated_data['client_credit'].apply(format_number)
+        paginated_data['aseavna_account'] = paginated_data['aseavna_account'].apply(format_number)
 
         # Agregar interacción para ordenar
         sort_options = {
@@ -533,7 +718,10 @@ def main():
             'Total (₡)': 'total',
             'Subsidio (₡)': 'subsidy',
             'Pago Empleado (₡)': 'employee_payment',
-            'Centro de Costos': 'cost_center'
+            'Centro de Costos': 'cost_center',
+            'Crédito Cliente (₡)': 'client_credit',
+            'Cuenta Aseavna (₡)': 'aseavna_account',
+            'Comisión Aseavna (₡)': 'asoavna_commission'
         }
         col_sort = st.columns(2)
         with col_sort[0]:
@@ -548,7 +736,8 @@ def main():
         # Mostrar la tabla con los campos relevantes
         st.dataframe(paginated_data[[
             'client', 'name', 'cedula', 'position', 'tipo', 'date', 'product',
-            'quantity', 'total', 'subsidy', 'employee_payment', 'cost_center'
+            'quantity', 'total', 'subsidy', 'employee_payment', 'cost_center',
+            'is_subsidized', 'client_credit', 'aseavna_account', 'asoavna_commission'
         ]], use_container_width=True)
 
         col_pagination = st.columns(3)
@@ -567,7 +756,7 @@ def main():
     st.header("Conclusión")
     st.write(
         f"El análisis de ventas para {'todos los grupos' if st.session_state.selected_tipo == 'All' else st.session_state.selected_tipo} "
-        f"revela una demanda constante por Almuerzo Ejecutivo Aseavna y Coca-Cola Regular 600mL, con subsidios que reducen efectivamente los costos para los empleados solo en Almuerzo Ejecutivo Aseavna. "
+        f"muestra una demanda constante por Almuerzo Ejecutivo Aseavna y Coca-Cola Regular 600mL. Los subsidios reducen efectivamente los costos para los empleados en Almuerzo Ejecutivo Aseavna, mientras que los productos no subsidiados generan una comisión del 5% para Aseavna. "
         f"{'La alta tasa de devoluciones de Johanna Alfaro Quiros requiere mayor investigación para mejorar la precisión de los pedidos y la satisfacción del cliente.' if st.session_state.selected_tipo in ['BEN2_62', 'All'] else 'Se recomienda monitorear los patrones de consumo para identificar oportunidades de mejora en la gestión de inventarios.'}"
     )
 

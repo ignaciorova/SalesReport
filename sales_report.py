@@ -402,6 +402,7 @@ class ReporteVentas:
                             .apply(lambda x: x['total'] * x['quantity'], axis=1)
                             .to_dict())
 
+        # Ensure sales_by_date has consistent structure
         sales_by_date_df = (filtered_df.groupby(filtered_df['date'].dt.strftime('%Y-%m-%d'))
                            .agg({'total': 'sum', 'quantity': 'sum'}))
         sales_by_date = (sales_by_date_df['total'] * sales_by_date_df['quantity']).to_dict()
@@ -767,11 +768,16 @@ def main():
             lambda x: x[:17] + '...' if len(x) > 20 else x
         )
 
+    # Handle empty sales_trend_data to prevent KeyError
     sales_trend_data = pd.DataFrame([
         {'date': k, 'revenue': v} for k, v in aggregated['sales_by_date'].items()
-    ]).sort_values('date')
-    if len(sales_trend_data) > 100:
-        sales_trend_data = sales_trend_data.iloc[::len(sales_trend_data)//100]
+    ])
+    if not sales_trend_data.empty:
+        sales_trend_data = sales_trend_data.sort_values('date')
+        if len(sales_trend_data) > 100:
+            sales_trend_data = sales_trend_data.iloc[::len(sales_trend_data)//100]
+    else:
+        sales_trend_data = pd.DataFrame(columns=['date', 'revenue'])
 
     product_pie_data = pd.DataFrame([
         {'name': k, 'value': v} for k, v in aggregated['product_distribution'].items()
@@ -1063,7 +1069,7 @@ def main():
                 )
 
         with col_btn[1]:
-            if st.button("Exportar a CSV", key=f"export_csv_{tabs[1].__hash__()}"):
+            if st.button("Exportar a CSV", key=f"export_csv_{tabs[1].__ TELEFONIAhash__()}"):
                 export_df = filtered_etiquetas.copy()
                 csv = export_df.to_csv(index=False)
                 st.download_button(

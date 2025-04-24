@@ -1,69 +1,7 @@
 Cant. ordenada,Cliente,Empresa,Fecha de la orden,Orden,Precio unitario,Total,Variante del producto,Vendedor
-1.0,"ASEAVNA BEN2_62, Acuña Quesada Jeiko Andre",C2-ASEAVNA,2025-04-10 17:35:45,Aseavna POS/0040,1300.0,1300.0,Almuerzo Ejecutivo Aseavna,Administrator
+"1.0,""ASEAVNA BEN2_62, Acuña Quesada Jeiko Andre"",C2-ASEAVNA,2025-04-10 17:35:45,Aseavna POS/0040,1300.0,1300.0,Almuerzo Ejecutivo Aseavna,Administrator"
 1.0,AVNA VISITAS,C2-ASEAVNA,2025-04-10 17:35:21,Aseavna POS/0039,3600.0,3600.0,Almuerzo Ejecutivo Aseavna,Administrator
-1.0,"ASEAVNA BEN2_62, Alfaro Quiros Johanna",C2-ASEAVNA,2025-04-10 17:17:23,Aseavna POS/0038,1300.0,1300.0,Almuerzo Ejecutivo Aseavna,Administrator
-1.0,"ASEAVNA BEN2_62, Acuña Quesada Jeiko Andre",C2-ASEAVNA,2025-04-10 17:06:07,Aseavna POS/0037,1300.0,1300.0,Almuerzo Ejecutivo Aseavna,Administrator
-1.0,"ASEAVNA BEN1_70, Aguilar Alvarado Bridget Stephanie",C2-ASEAVNA,2025-04-10 15:48:06,Aseavna POS/0036,1000.0,1000.0,Coca-Cola Regular 600mL,Administrator
-1.0,"ASEAVNA BEN1_70, Aguilar Alvarado Bridget Stephanie",C2-ASEAVNA,2025-04-10 15:48:06,Aseavna POS/0036,1000.0,1000.0,Almuerzo Ejecutivo Aseavna,Administrator
-1.0,"ASEAVNA BEN1_70, Aguirre Viales Karina",C2-ASEAVNA,2025-04-10 15:45:47,Aseavna POS/0035,1000.0,1000.0,Almuerzo Ejecutivo Aseavna,Administrator
-1.0,"ASEAVNA BEN1_70, Aguirre Viales Karina",C2-ASEAVNA,2025-04-10 15:45:47,Aseavna POS/0035,1000.0,1000.0,Coca-Cola Regular 600mL,Administrator
-1.0,"ASEAVNA BEN2_62, Alfaro Quiros Johanna",C2-ASEAVNA,2025-04-10 15:41:03,Aseavna POS/0034,1300.0,1300.0,Almuerzo Ejecutivo Aseavna,Administrator
-1.0,"ASEAVNA BEN2_62, Alfaro Quiros Johanna",C2-ASEAVNA,2025-04-10 15:41:03,Aseavna POS/0034,1000.0,1000.0,Coca-Cola Regular 600mL,Administrator
-1.0,"ASEAVNA BEN1_70, Aguilar Alvarado Bridget Stephanie",C2-ASEAVNA,2025-04-10 15:40:51,Aseavna POS/0033,1000.0,1000.0,Coca-Cola Regular 600mL,Administrator
-1.0,"ASEAVNA BEN1_70, Aguilar Alvarado Bridget Stephanie",C2-ASEAVNA,2025-04-10 15:40:51,Aseavna POS/0033,1000.0,1000.0,Almuerzo Ejecutivo Aseavna,Administrator
-1.0,"ASEAVNA BEN2_62, Alfaro Quiros Johanna",C2-ASEAVNA,2025-04-10 02:56:45,Aseavna POS/0032,1000.0,1000.0,Coca-Cola Regular 600mL,Administrator
-1.0,"ASEAVNA BEN2_62, Alfaro Quiros Johanna",C2-ASEAVNA,2025-04-10 02:56:45,Aseavna POS/0032,1300.0,1300.0,Almuerzo Ejecutivo Aseavna,Administrator
-1.0,"ASEAVNA BEN1_70, Aguirre Viales Karina",C2-ASEAVNA,2025-04-10 02:56:32,Aseavna POS/0031,1100.0,1100.0,Almuerzo Ejecutivo Aseavna,Administrator
-1.0,"ASEAVNA BEN1_70, Aguirre Viales Karina",C2-ASEAVNA,2025-04-10 02:56:32,Aseavna POS/0031,1000.0,1000.0,Coca-Cola Regular 600mL,Administrator
-1.0,"ASEAVNA BEN2_62, Alfaro Quiros Johanna",C2-ASEAVNA,2025-04-10 01:36:55,Aseavna POS/0030,1300.0,1300.0,Almuerzo Ejecutivo Aseavna,Administrator
-2.0,"ASEAVNA BEN2_62, Alfaro Quiros Johanna",C2-ASEAVNA,2025-04-10 01:36:55,Aseavna POS/0030,1000.0,2000.0,Coca-Cola Regular 600mL,Administrator
-1.0,"ASEAVNA BEN1_70, Aguirre Viales Karina",C2-ASEAVNA,2025-04-10 01:36:46,Aseavna POS/0029,1100.0,1100.0,Almuerzo Ejecutivo Aseavna,Administrator
-1.0,"ASEAVNA BEN1_70, Aguirre Viales Karina",C2-ASEAVNA,2025-04-10 01:36:46,Aseavna POS/0029,1000.0,1000.0,Coca-Cola Regular 600mL,Administrator
-1.0,"ASEAVNA BEN1_70, Aguilar Alvarado Bridget Stephanie",C2-ASEAVNA,2025-04-10 01:36:36,Aseavna POS/0028,1100.0,1100.0,Almuerzo Ejecutivo Aseavna,Administrator
-1.0,"ASEAVNA BEN1_70, Aguilar Alvarado Bridget Stephanie",C2-ASEAVNA,2025-04-10 01:36:36,Aseavna POS/0028,1000.0,1000.0,Coca-Cola Regular 600mL,Administrator
-1.0,"ASEAVNA BEN1_70, Aguilar Alvarado Bridget Stephanie",C2-ASEAVNA,2025-04-10 01:31:00,Aseavna POS/0027,1100.0,1100.0,Almuerzo Ejecutivo Aseavna,Administrator
-1.0,"ASEAVNA BEN1_70, Aguilar Alvarado Bridget Stephanie",C2-ASEAVNA,2025-04-10 01:31:00,Aseavna POS/0027,1000.0,1000.0,Coca-Cola Regular 600mL,Administrator
-1.0,"ASEAVNA BEN2_62, Alfaro Quiros Johanna",C2-ASEAVNA,2025-04-10 01:30:48,Aseavna POS/0026,1300.0,1300.0,Almuerzo Ejecutivo Aseavna,Administrator
-1.0,"ASEAVNA BEN2_62, Alfaro Quiros Johanna",C2-ASEAVNA,2025-04-10 01:30:48,Aseavna POS/0026,1000.0,1000.0,Coca-Cola Regular 600mL,Administrator
-1.0,"ASEAVNA BEN1_70, Aguirre Viales Karina",C2-ASEAVNA,2025-04-10 01:22:30,Aseavna POS/0025,1000.0,1000.0,Coca-Cola Regular 600mL,Administrator
-1.0,"ASEAVNA BEN1_70, Aguirre Viales Karina",C2-ASEAVNA,2025-04-10 01:22:30,Aseavna POS/0025,1100.0,1100.0,Almuerzo Ejecutivo Aseavna,Administrator
--1.0,"ASEAVNA BEN2_62, Alfaro Quiros Johanna",C2-ASEAVNA,2025-04-10 00:08:17,Aseavna POS/0024,1300.0,-1300.0,Almuerzo Ejecutivo Aseavna,Administrator
--1.0,"ASEAVNA BEN1_70, Aguilar Alvarado Bridget Stephanie",C2-ASEAVNA,2025-04-10 00:07:15,Aseavna POS/0023,1100.0,-1100.0,Almuerzo Ejecutivo Aseavna,Administrator
--1.0,"ASEAVNA BEN1_70, Aguilar Alvarado Bridget Stephanie",C2-ASEAVNA,2025-04-10 00:01:33,Aseavna POS/0022,1100.0,-1100.0,Almuerzo Ejecutivo Aseavna,Administrator
-1.0,"ASEAVNA BEN1_70, Aguilar Alvarado Bridget Stephanie",C2-ASEAVNA,2025-04-10 00:01:33,Aseavna POS/0022,1100.0,1100.0,Almuerzo Ejecutivo Aseavna,Administrator
-1.0,"ASEAVNA BEN1_70, Aguilar Alvarado Bridget Stephanie",C2-ASEAVNA,2025-04-09 23:02:16,Aseavna POS/0021,1100.0,1100.0,Almuerzo Ejecutivo Aseavna,Administrator
-1.0,"ASEAVNA BEN2_62, Alfaro Quiros Johanna",C2-ASEAVNA,2025-04-09 22:48:29,Aseavna POS/0020,1000.0,1000.0,Coca-Cola Regular 600mL,Administrator
-1.0,"ASEAVNA BEN2_62, Alfaro Quiros Johanna",C2-ASEAVNA,2025-04-09 22:48:29,Aseavna POS/0020,1300.0,1300.0,Almuerzo Ejecutivo Aseavna,Administrator
-1.0,"ASEAVNA BEN1_70, Aguilar Alvarado Bridget Stephanie",C2-ASEAVNA,2025-04-09 22:48:20,Aseavna POS/0019,1100.0,1100.0,Almuerzo Ejecutivo Aseavna,Administrator
-1.0,"ASEAVNA BEN1_70, Aguilar Alvarado Bridget Stephanie",C2-ASEAVNA,2025-04-09 22:48:20,Aseavna POS/0019,1000.0,1000.0,Coca-Cola Regular 600mL,Administrator
-1.0,"ASEAVNA BEN2_62, Alfaro Quiros Johanna",C2-ASEAVNA,2025-04-09 22:45:24,Aseavna POS/0018,1000.0,1000.0,Coca-Cola Regular 600mL,Administrator
-1.0,"ASEAVNA BEN2_62, Alfaro Quiros Johanna",C2-ASEAVNA,2025-04-09 22:45:24,Aseavna POS/0018,1300.0,1300.0,Almuerzo Ejecutivo Aseavna,Administrator
-1.0,"ASEAVNA BEN1_70, Aguilar Alvarado Bridget Stephanie",C2-ASEAVNA,2025-04-09 22:45:16,Aseavna POS/0017,1000.0,1000.0,Coca-Cola Regular 600mL,Administrator
-1.0,"ASEAVNA BEN1_70, Aguilar Alvarado Bridget Stephanie",C2-ASEAVNA,2025-04-09 22:45:16,Aseavna POS/0017,1100.0,1100.0,Almuerzo Ejecutivo Aseavna,Administrator
-1.0,Leidy Vargas Vargas,C2-ASEAVNA,2025-04-09 22:43:41,Aseavna POS/0016,3100.0,3100.0,Almuerzo Ejecutivo Aseavna,Administrator
-1.0,Leidy Vargas Vargas,C2-ASEAVNA,2025-04-09 22:43:41,Aseavna POS/0016,1000.0,1000.0,Coca-Cola Regular 600mL,Administrator
-1.0,"ASEAVNA BEN2_62, Alfaro Quiros Johanna",C2-ASEAVNA,2025-04-09 22:43:31,Aseavna POS/0015,1300.0,1300.0,Almuerzo Ejecutivo Aseavna,Administrator
-1.0,"ASEAVNA BEN2_62, Alfaro Quiros Johanna",C2-ASEAVNA,2025-04-09 22:43:31,Aseavna POS/0015,1000.0,1000.0,Coca-Cola Regular 600mL,Administrator
-1.0,"ASEAVNA BEN1_70, Aguilar Alvarado Bridget Stephanie",C2-ASEAVNA,2025-04-09 22:41:04,Aseavna POS/0014,1100.0,1100.0,Almuerzo Ejecutivo Aseavna,Administrator
-1.0,"ASEAVNA BEN1_70, Aguilar Alvarado Bridget Stephanie",C2-ASEAVNA,2025-04-09 22:41:04,Aseavna POS/0014,1000.0,1000.0,Coca-Cola Regular 600mL,Administrator
-1.0,"ASEAVNA BEN1_70, Aguilar Alvarado Bridget Stephanie",C2-ASEAVNA,2025-04-09 22:21:39,Aseavna POS/0013,1100.0,1100.0,Almuerzo Ejecutivo Aseavna,Administrator
-1.0,"ASEAVNA BEN1_70, Aguilar Alvarado Bridget Stephanie",C2-ASEAVNA,2025-04-09 22:21:39,Aseavna POS/0013,1000.0,1000.0,Coca-Cola Regular 600mL,Administrator
-1.0,"ASEAVNA BEN1_70, Aguilar Alvarado Bridget Stephanie",C2-ASEAVNA,2025-04-09 21:04:02,Aseavna POS/0012,1100.0,1100.0,Almuerzo Ejecutivo Aseavna,Administrator
-1.0,"ASEAVNA BEN1_70, Aguilar Alvarado Bridget Stephanie",C2-ASEAVNA,2025-04-09 21:04:02,Aseavna POS/0012,1000.0,1000.0,Coca-Cola Regular 600mL,Administrator
-1.0,"ASEAVNA BEN2_62, Alfaro Quiros Johanna",C2-ASEAVNA,2025-04-09 20:56:59,Aseavna POS/0011,1300.0,1300.0,Almuerzo Ejecutivo Aseavna,Administrator
-1.0,"ASEAVNA BEN2_62, Alfaro Quiros Johanna",C2-ASEAVNA,2025-04-09 20:56:59,Aseavna POS/0011,1000.0,1000.0,Coca-Cola Regular 600mL,Administrator
-1.0,"ASEAVNA BEN2_62, Acuña Quesada Jeiko Andre",C2-ASEAVNA,2025-04-09 20:56:46,Aseavna POS/0010,1300.0,1300.0,Almuerzo Ejecutivo Aseavna,Administrator
-1.0,"ASEAVNA BEN2_62, Acuña Quesada Jeiko Andre",C2-ASEAVNA,2025-04-09 20:56:46,Aseavna POS/0010,1000.0,1000.0,Coca-Cola Regular 600mL,Administrator
-1.0,Leidy Vargas Vargas,C2-ASEAVNA,2025-04-09 20:56:35,Aseavna POS/0009,3100.0,3100.0,Almuerzo Ejecutivo Aseavna,Administrator
-1.0,Leidy Vargas Vargas,C2-ASEAVNA,2025-04-09 20:56:35,Aseavna POS/0009,1000.0,1000.0,Coca-Cola Regular 600mL,Administrator
-1.0,"ASEAVNA BEN1_70, Aguilar Alvarado Bridget Stephanie",C2-ASEAVNA,2025-04-09 20:01:21,Aseavna POS/0008,1100.0,1100.0,Almuerzo Ejecutivo Aseavna,Administrator
-1.0,"ASEAVNA BEN1_70, Aguilar Alvarado Bridget Stephanie",C2-ASEAVNA,2025-04-09 20:01:21,Aseavna POS/0008,1000.0,1000.0,Coca-Cola Regular 600mL,Administrator
-1.0,"ASEAVNA BEN1_70, Aguirre Viales Karina",C2-ASEAVNA,2025-04-09 19:32:40,Aseavna POS/0005,1000.0,1000.0,Coca-Cola Regular 600mL,Administrator
-1.0,"ASEAVNA BEN1_70, Aguirre Viales Karina",C2-ASEAVNA,2025-04-09 19:32:40,Aseavna POS/0005,1100.0,1100.0,Almuerzo Ejecutivo Aseavna,Administrator
--1.0,"ASEAVNA BEN2_62, Alfaro Quiros Johanna",C2-ASEAVNA,2025-04-09 19:18:01,Aseavna POS/0004,1300.0,-1300.0,Almuerzo Ejecutivo Aseavna,Administrator
-1.0,"ASEAVNA BEN2_62, Alfaro Quiros Johanna",C2-ASEAVNA,2025-04-09 19:18:01,Aseavna POS/0004,1300.0,1300.0,Almuerzo Ejecutivo Aseavna,Administrator
-1.0,"ASEAVNA BEN2_62, Alfaro Quiros Johanna",C2-ASEAVNA,2025-04-09 18:30:10,Aseavna POS/0003,1300.0,1300.0,Almuerzo Ejecutivo Aseavna,Administrator
--1.0,"ASEAVNA BEN2_62, Alfaro Quiros Johanna",C2-ASEAVNA,2025-04-09 18:11:02,Aseavna POS/0002,-1900.0,1900.0,Subsidio BEN1,Administrator
--1.0,"ASEAVNA BEN2_62, Alfaro Quiros Johanna",C2-ASEAVNA,2025-04-09 18:11:02,Aseavna POS/0002,3100.0,-3100.0,Almuerzo Ejecutivo Aseavna,Administrator
-1.0,"ASEAVNA BEN2_62, Alfaro Quiros Johanna",C2-ASEAVNA,2025-04-09 18:09:08,Aseavna POS/0001,3100.0,3100.0,Almuerzo Ejecutivo Aseavna,Administrator
-1.0,"ASEAVNA BEN2_62, Alfaro Quiros Johanna",C2-ASEAVNA,2025-04-09 18:09:08,Aseavna POS/0001,-1900.0,-1900.0,Subsidio BEN1,Administrator
+"1.0,""ASEAVNA BEN2_62, Alfaro Quiros Johanna"",C2-ASEAVNA,2025-04-10 17:17:23,Aseavna POS/0038,1300.0,1300.0,Almuerzo Ejecutivo Aseavna,Administrator"
+"1.0,""ASEAVNA BEN2_62, Acuña Quesada Jeiko Andre"",C2-ASEAVNA,2025-04-10 17:06:07,Aseavna POS/0037,1300.0,1300.0,Almuerzo Ejecutivo Aseavna,Administrator"
+"1.0,""ASEAVNA BEN1_70, Aguilar Alvarado Bridget Stephanie"",C2-ASEAVNA,2025-04-10 15:48:06,Aseavna POS/0036,1000.0,1000.0,Coca-Cola Regular 600mL,Administrator"
+"1.0,""ASEAVNA BEN1_70, Aguilar Alvarado Bridget Stephanie"",C2-ASEAVNA,2025-04-10 15:48:06,Aseavna POS/0036,1000.0,1000.0,Almuerzo Ejecutivo Aseavna,Administrator"

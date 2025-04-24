@@ -568,7 +568,7 @@ def display_filters(tab_id: str):
         col1, col2, col3, col4, col5 = st.columns(5)
         with col1:
             unique_tipos = ['All'] + sorted(st.session_state.sales_data['tipo'].unique()) if not st.session_state.sales_data.empty else ['All']
-            selected_tipo = st.selectbox("Tipo", unique_tipos, index=unique_tipos.index(st.session_state.selected_tipo), key=f"tipo_filter_{tab_id}")
+            selected_tipo = st.selectbox("Tipo", unique_tipos, index=unique_tipos.index(st.session_state.selected_tipo) if st.session_state.selected_tipo in unique_tipos else 0, key=f"tipo_filter_{tab_id}")
         with col2:
             start_date, end_date = st.date_input(
                 "Rango de Fechas",
@@ -581,7 +581,7 @@ def display_filters(tab_id: str):
             search_query = st.text_input("Buscar Cliente o Cédula", value=st.session_state.search_query, key=f"search_filter_{tab_id}")
         with col4:
             unique_cost_centers = ['All'] + sorted(st.session_state.sales_data['cost_center'].unique()) if not st.session_state.sales_data.empty else ['All']
-            selected_cost_center = st.selectbox("Centro de Costos", unique_cost_centers, index=unique_cost_centers.index(st.session_state.selected_cost_center), key=f"cost_center_filter_{tab_id}")
+            selected_cost_center = st.selectbox("Centro de Costos", unique_cost_centers, index=unique_cost_centers.index(st.session_state.selected_cost_center) if st.session_state.selected_cost_center in unique_cost_centers else 0, key=f"cost_center_filter_{tab_id}")
         with col5:
             unique_clients = ['All'] + sorted(st.session_state.sales_data['client'].unique()) if not st.session_state.sales_data.empty else ['All']
             selected_client = st.selectbox("Cliente", unique_clients, index=unique_clients.index(st.session_state.selected_client) if st.session_state.selected_client in unique_clients else 0, key=f"client_filter_{tab_id}")
@@ -747,7 +747,7 @@ def main():
 
     filtered_comisiones = comisiones_no_subsidiadas_df.copy()
     if st.session_state.selected_client != 'All':
-        filtered_comisiones = filtered_comisiones[filtered_comisiones226['client'] == st.session_state.selected_client]
+        filtered_comisiones = filtered_comisiones[filtered_comisiones['client'] == st.session_state.selected_client]
 
     filtered_etiquetas = reporte._generar_etiquetas_fila(filtered_data)
     filtered_data = filtered_data.sort_values(
@@ -995,32 +995,32 @@ def main():
         st.header("Opciones de Exportación")
         col_export = st.columns(8)
         with col_export[0]:
-            st.session_state.export_options['revenue_chart'] = st.checkbox("Gráfico de Ingresos por Cliente", value=st.session_state.export_options['revenue_chart'], key="export_revenue_chart")
+            st.session_state.export_options['revenue_chart'] = st.checkbox("Gráfico de Ingresos por Cliente", value=st.session_state.export_options['revenue_chart'], key=f"export_revenue_chart_{tabs[1].__hash__()}")
         with col_export[1]:
-            st.session_state.export_options['sales_trend'] = st.checkbox("Gráfico de Tendencia de Ventas", value=st.session_state.export_options['sales_trend'], key="export_sales_trend")
+            st.session_state.export_options['sales_trend'] = st.checkbox("Gráfico de Tendencia de Ventas", value=st.session_state.export_options['sales_trend'], key=f"export_sales_trend_{tabs[1].__hash__()}")
         with col_export[2]:
-            st.session_state.export_options['product_pie'] = st.checkbox("Gráfico de Distribución de Productos", value=st.session_state.export_options['product_pie'], key="export_product_pie")
+            st.session_state.export_options['product_pie'] = st.checkbox("Gráfico de Distribución de Productos", value=st.session_state.export_options['product_pie'], key=f"export_product_pie_{tabs[1].__hash__()}")
         with col_export[3]:
-            st.session_state.export_options['cost_breakdown'] = st.checkbox("Gráfico de Desglose de Costos", value=st.session_state.export_options['cost_breakdown'], key="export_cost_breakdown")
+            st.session_state.export_options['cost_breakdown'] = st.checkbox("Gráfico de Desglose de Costos", value=st.session_state.export_options['cost_breakdown'], key=f"export_cost_breakdown_{tabs[1].__hash__()}")
         with col_export[4]:
-            st.session_state.export_options['consumption_table'] = st.checkbox("Tabla de Consumo", value=st.session_state.export_options['consumption_table'], key="export_consumption_table")
+            st.session_state.export_options['consumption_table'] = st.checkbox("Tabla de Consumo", value=st.session_state.export_options['consumption_table'], key=f"export_consumption_table_{tabs[1].__hash__()}")
         with col_export[5]:
-            st.session_state.export_options['facturacion_table'] = st.checkbox("Tabla de Facturación", value=st.session_state.export_options['facturacion_table'], key="export_facturacion_table")
+            st.session_state.export_options['facturacion_table'] = st.checkbox("Tabla de Facturación", value=st.session_state.export_options['facturacion_table'], key=f"export_facturacion_table_{tabs[1].__hash__()}")
         with col_export[6]:
-            st.session_state.export_options['individual_report'] = st.checkbox("Reporte Individual", value=st.session_state.export_options['individual_report'], key="export_individual_report")
+            st.session_state.export_options['individual_report'] = st.checkbox("Reporte Individual", value=st.session_state.export_options['individual_report'], key=f"export_individual_report_{tabs[1].__hash__()}")
         with col_export[7]:
-            st.session_state.export_options['non_subsidized_commissions'] = st.checkbox("Comisiones No Subsidiadas", value=st.session_state.export_options['non_subsidized_commissions'], key="export_non_subsidized_commissions")
+            st.session_state.export_options['non_subsidized_commissions'] = st.checkbox("Comisiones No Subsidiadas", value=st.session_state.export_options['non_subsidized_commissions'], key=f"export_non_subsidized_commissions_{tabs[1].__hash__()}")
 
         st.subheader("Selecciona la plantilla para el PDF")
         pdf_template_options = ['Ventas', 'Consumo por Empleado', 'Consumo por Productos', 'Consumo por Centro de Costos']
-        selected_pdf_template = st.selectbox("Plantilla de PDF", pdf_template_options, index=pdf_template_options.index(st.session_state.pdf_template), key="pdf_template_select")
+        selected_pdf_template = st.selectbox("Plantilla de PDF", pdf_template_options, index=pdf_template_options.index(st.session_state.pdf_template), key=f"pdf_template_select_{tabs[1].__hash__()}")
         if selected_pdf_template != st.session_state.pdf_template:
             st.session_state.pdf_template = selected_pdf_template
             st.rerun()
 
         col_btn = st.columns(3)
         with col_btn[0]:
-            if st.button("Exportar a Excel", key="export_excel"):
+            if st.button("Exportar a Excel", key=f"export_excel_{tabs[1].__hash__()}"):
                 buffer = BytesIO()
                 with pd.ExcelWriter(buffer, engine='xlsxwriter') as writer:
                     total_revenue = (filtered_data['total'] * filtered_data['quantity']).sum() if not filtered_data.empty else 0
@@ -1059,11 +1059,11 @@ def main():
                     data=buffer,
                     file_name=f"reporte_ventas_aseavna_{datetime.now().strftime('%Y-%m-%d')}.xlsx",
                     mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
-                    key="download_excel"
+                    key=f"download_excel_{tabs[1].__hash__()}"
                 )
 
         with col_btn[1]:
-            if st.button("Exportar a CSV", key="export_csv"):
+            if st.button("Exportar a CSV", key=f"export_csv_{tabs[1].__hash__()}"):
                 export_df = filtered_etiquetas.copy()
                 csv = export_df.to_csv(index=False)
                 st.download_button(
@@ -1071,11 +1071,11 @@ def main():
                     data=csv,
                     file_name=f"reporte_ventas_aseavna_{datetime.now().strftime('%Y-%m-%d')}.csv",
                     mime="text/csv",
-                    key="download_csv"
+                    key=f"download_csv_{tabs[1].__hash__()}"
                 )
 
         with col_btn[2]:
-            if st.button("Exportar a PDF", key="export_pdf"):
+            if st.button("Exportar a PDF", key=f"export_pdf_{tabs[1].__hash__()}"):
                 with st.spinner("Generando PDF..."):
                     try:
                         configuration = pdfkit.configuration(wkhtmltopdf=WKHTMLTOPDF_PATH)
@@ -1089,7 +1089,7 @@ def main():
                                 data=pdf_data,
                                 file_name=f"reporte_ventas_aseavna_{datetime.now().strftime('%Y-%m-%d')}.pdf",
                                 mime="application/pdf",
-                                key="download_pdf"
+                                key=f"download_pdf_{tabs[1].__hash__()}"
                             )
                         os.unlink(tmp_file.name)
                     except Exception as e:

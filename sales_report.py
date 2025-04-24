@@ -494,7 +494,7 @@ def generate_pdf_content(facturacion_df: pd.DataFrame, facturacion_adicional_df:
         html_content += "<h2>Desglose de Facturación (solo Almuerzo Ejecutivo Aseavna)</h2>"
         html_content += facturacion_df.to_html(index=False, escape=True, classes='facturacion-table', formatters={
             'BEN1_70 Con 5% para ASOANVA': lambda x: f"{x:,.2f}" if isinstance(x, (int, float)) else x,
-            'BEN2_62 Con 5% para ASOANVA': lambda x: f"{x:,. Lloyd2f}" if isinstance(x, (int, float)) else x,
+            'BEN2_62 Con 5% para ASOANVA': lambda x: f"{x:,.2f}" if isinstance(x, (int, float)) else x,
             'Total': lambda x: f"{x:,.2f}" if isinstance(x, (int, float)) else x
         })
         html_content += "<h2>Facturación Adicional</h2>"
@@ -555,6 +555,61 @@ def generate_pdf_content(facturacion_df: pd.DataFrame, facturacion_adicional_df:
 
     html_content += "</body></html>"
     return html_content
+
+# Filtros con claves únicas por pestaña
+def display_filters(tab_id: str):
+    """Display filters with unique widget keys based on tab_id."""
+    st.header("Filtros de Reporte")
+    with st.container():
+        st.write(f"**Resumen de Filtros**: Tipo: {st.session_state.selected_tipo}, "
+                 f"Rango de Fechas: {st.session_state.date_range_start} a {st.session_state.date_range_end}, "
+                 f"Centro de Costos: {st.session_state.selected_cost_center}, "
+                 f"Cliente: {st.session_state.selected_client}")
+        col1, col2, col3, col4, col5 = st.columns(5)
+        with col1:
+            unique_tipos = ['All'] + sorted(st.session_state.sales_data['tipo'].unique()) if not st.session_state.sales_data.empty else ['All']
+            selected_tipo = st.selectbox("Tipo", unique_tipos, index=unique_tipos.index(st.session_state.selected_tipo), key=f"tipo_filter_{tab_id}")
+        with col2:
+            start_date, end_date = st.date_input(
+                "Rango de Fechas",
+                [st.session_state.date_range_start, st.session_state.date_range_end],
+                min_value=st.session_state.sales_data['date'].min().date() if not st.session_state.sales_data.empty else datetime.today().date(),
+                max_value=st.session_state.sales_data['date'].max().date() if not st.session_state.sales_data.empty else datetime.today().date(),
+                key=f"date_filter_{tab_id}"
+            )
+        with col3:
+            search_query = st.text_input("Buscar Cliente o Cédula", value=st.session_state.search_query, key=f"search_filter_{tab_id}")
+        with col4:
+            unique_cost_centers = ['All'] + sorted(st.session_state.sales_data['cost_center'].unique()) if not st.session_state.sales_data.empty else ['All']
+            selected_cost_center = st.selectbox("Centro de Costos", unique_cost_centers, index=unique_cost_centers.index(st.session_state.selected_cost_center), key=f"cost_center_filter_{tab_id}")
+        with col5:
+            unique_clients = ['All'] + sorted(st.session_state.sales_data['client'].unique()) if not st.session_state.sales_data.empty else ['All']
+            selected_client = st.selectbox("Cliente", unique_clients, index=unique_clients.index(st.session_state.selected_client) if st.session_state.selected_client in unique_clients else 0, key=f"client_filter_{tab_id}")
+
+        if (selected_tipo != st.session_state.selected_tipo or
+            start_date != st.session_state.date_range_start or
+            end_date != st.session_state.date_range_end or
+            search_query != st.session_state.search_query or
+            selected_cost_center != st.session_state.selected_cost_center or
+            selected_client != st.session_state.selected_client):
+            st.session_state.selected_tipo = selected_tipo
+            st.session_state.date_range_start = start_date
+            st.session_state.date_range_end = end_date
+            st.session_state.search_query = search_query
+            st.session_state.selected_cost_center = selected_cost_center
+            st.session_state.selected_client = selected_client
+            st.session_state.current_page = 1
+            st.rerun()
+
+        if st.button("Restablecer Filtros", key=f"reset_filters_{tab_id}"):
+            st.session_state.selected_tipo = 'All'
+            st.session_state.date_range_start = st.session_state.sales_data['date'].min().date() if not st.session_state.sales_data.empty else datetime.today().date()
+            st.session_state.date_range_end = st.session_state.sales_data['date'].max().date() if not st.session_state.sales_data.empty else datetime.today().date()
+            st.session_state.search_query = ''
+            st.session_state.selected_cost_center = 'All'
+            st.session_state.selected_client = 'All'
+            st.session_state.current_page = 1
+            st.rerun()
 
 # Main app
 def main():
@@ -625,6 +680,7 @@ def main():
             st.session_state.last_iva_rate = st.session_state.iva_rate
     reporte = st.session_state.reporte
     sales_data = reporte.datos
+    st.session_state.sales_data = sales_data  # Store sales_data in session_state for use in display_filters
 
     expected_columns = ['client', 'display_name', 'name', 'company', 'date', 'order', 'quantity', 'unit_price', 'total', 'base_price', 'product', 'seller', 'cedula', 'position', 'tipo', 'cost_center', 'is_subsidized', 'subsidy', 'employee_payment', 'employee_payment_base', 'asoavna_commission', 'iva', 'client_credit', 'aseavna_account']
     missing_columns = [col for col in expected_columns if col not in sales_data.columns]
@@ -691,7 +747,7 @@ def main():
 
     filtered_comisiones = comisiones_no_subsidiadas_df.copy()
     if st.session_state.selected_client != 'All':
-        filtered_comisiones = filtered_comisiones[filtered_comisiones['client'] == st.session_state.selected_client]
+        filtered_comisiones = filtered_comisiones[filtered_comisiones226['client'] == st.session_state.selected_client]
 
     filtered_etiquetas = reporte._generar_etiquetas_fila(filtered_data)
     filtered_data = filtered_data.sort_values(
@@ -723,64 +779,10 @@ def main():
 
     cost_breakdown_data = aggregated['cost_breakdown_by_tipo']
 
-    # Filtros
-    def display_filters():
-        st.header("Filtros de Reporte")
-        with st.container():
-            st.write(f"**Resumen de Filtros**: Tipo: {st.session_state.selected_tipo}, "
-                     f"Rango de Fechas: {st.session_state.date_range_start} a {st.session_state.date_range_end}, "
-                     f"Centro de Costos: {st.session_state.selected_cost_center}, "
-                     f"Cliente: {st.session_state.selected_client}")
-            col1, col2, col3, col4, col5 = st.columns(5)
-            with col1:
-                unique_tipos = ['All'] + sorted(sales_data['tipo'].unique()) if not sales_data.empty else ['All']
-                selected_tipo = st.selectbox("Tipo", unique_tipos, index=unique_tipos.index(st.session_state.selected_tipo), key="tipo_filter")
-            with col2:
-                start_date, end_date = st.date_input(
-                    "Rango de Fechas",
-                    [st.session_state.date_range_start, st.session_state.date_range_end],
-                    min_value=sales_data['date'].min().date() if not sales_data.empty else datetime.today().date(),
-                    max_value=sales_data['date'].max().date() if not sales_data.empty else datetime.today().date(),
-                    key="date_filter"
-                )
-            with col3:
-                search_query = st.text_input("Buscar Cliente o Cédula", value=st.session_state.search_query, key="search_filter")
-            with col4:
-                unique_cost_centers = ['All'] + sorted(sales_data['cost_center'].unique()) if not sales_data.empty else ['All']
-                selected_cost_center = st.selectbox("Centro de Costos", unique_cost_centers, index=unique_cost_centers.index(st.session_state.selected_cost_center), key="cost_center_filter")
-            with col5:
-                unique_clients = ['All'] + sorted(sales_data['client'].unique()) if not sales_data.empty else ['All']
-                selected_client = st.selectbox("Cliente", unique_clients, index=unique_clients.index(st.session_state.selected_client) if st.session_state.selected_client in unique_clients else 0, key="client_filter")
-
-            if (selected_tipo != st.session_state.selected_tipo or
-                start_date != st.session_state.date_range_start or
-                end_date != st.session_state.date_range_end or
-                search_query != st.session_state.search_query or
-                selected_cost_center != st.session_state.selected_cost_center or
-                selected_client != st.session_state.selected_client):
-                st.session_state.selected_tipo = selected_tipo
-                st.session_state.date_range_start = start_date
-                st.session_state.date_range_end = end_date
-                st.session_state.search_query = search_query
-                st.session_state.selected_cost_center = selected_cost_center
-                st.session_state.selected_client = selected_client
-                st.session_state.current_page = 1
-                st.rerun()
-
-            if st.button("Restablecer Filtros"):
-                st.session_state.selected_tipo = 'All'
-                st.session_state.date_range_start = sales_data['date'].min().date() if not sales_data.empty else datetime.today().date()
-                st.session_state.date_range_end = sales_data['date'].max().date() if not sales_data.empty else datetime.today().date()
-                st.session_state.search_query = ''
-                st.session_state.selected_cost_center = 'All'
-                st.session_state.selected_client = 'All'
-                st.session_state.current_page = 1
-                st.rerun()
-
     # Pestaña de Facturación
     with tabs[1]:
         with st.spinner("Procesando datos de facturación..."):
-            display_filters()
+            display_filters("facturacion")
             st.header("Desglose de Facturación (solo Almuerzo Ejecutivo Aseavna)")
             st.write("Nota: Los subsidios y costos asociados se aplican únicamente al producto 'Almuerzo Ejecutivo Aseavna' para BEN1 y BEN2.")
 
@@ -870,7 +872,7 @@ def main():
     # Pestaña de Gráficos
     with tabs[2]:
         with st.spinner("Generando gráficos..."):
-            display_filters()
+            display_filters("graficos")
             if st.session_state.export_options['revenue_chart']:
                 st.header("Ingresos por Cliente")
                 if not revenue_chart_data.empty:
@@ -917,7 +919,7 @@ def main():
 
     # Pestaña de Historial de Consumo
     with tabs[3]:
-        display_filters()
+        display_filters("historial")
         st.header("Historial de Consumo por Contacto (Etiquetas de la fila)")
         display_etiquetas = filtered_etiquetas.copy()
         display_etiquetas['Suma de Monto Cliente'] = display_etiquetas['Suma de Monto Cliente'].apply(lambda x: format_number(x) if isinstance(x, (int, float)) else x)
@@ -926,7 +928,7 @@ def main():
 
     # Pestaña de Reporte Individual
     with tabs[4]:
-        display_filters()
+        display_filters("individual")
         st.header("Reporte Individual")
         if st.session_state.selected_client != 'All':
             client_data = reportes_individuales.get(st.session_state.selected_client, None)
@@ -975,7 +977,7 @@ def main():
 
     # Pestaña de Comisiones No Subsidiadas
     with tabs[5]:
-        display_filters()
+        display_filters("comisiones")
         st.header("Comisiones de Productos No Subsidiados")
         st.write("Nota: La comisión para productos no subsidiados es del 5% por transacción.")
         if not filtered_comisiones_df.empty:
@@ -993,21 +995,21 @@ def main():
         st.header("Opciones de Exportación")
         col_export = st.columns(8)
         with col_export[0]:
-            st.session_state.export_options['revenue_chart'] = st.checkbox("Gráfico de Ingresos por Cliente", value=st.session_state.export_options['revenue_chart'])
+            st.session_state.export_options['revenue_chart'] = st.checkbox("Gráfico de Ingresos por Cliente", value=st.session_state.export_options['revenue_chart'], key="export_revenue_chart")
         with col_export[1]:
-            st.session_state.export_options['sales_trend'] = st.checkbox("Gráfico de Tendencia de Ventas", value=st.session_state.export_options['sales_trend'])
+            st.session_state.export_options['sales_trend'] = st.checkbox("Gráfico de Tendencia de Ventas", value=st.session_state.export_options['sales_trend'], key="export_sales_trend")
         with col_export[2]:
-            st.session_state.export_options['product_pie'] = st.checkbox("Gráfico de Distribución de Productos", value=st.session_state.export_options['product_pie'])
+            st.session_state.export_options['product_pie'] = st.checkbox("Gráfico de Distribución de Productos", value=st.session_state.export_options['product_pie'], key="export_product_pie")
         with col_export[3]:
-            st.session_state.export_options['cost_breakdown'] = st.checkbox("Gráfico de Desglose de Costos", value=st.session_state.export_options['cost_breakdown'])
+            st.session_state.export_options['cost_breakdown'] = st.checkbox("Gráfico de Desglose de Costos", value=st.session_state.export_options['cost_breakdown'], key="export_cost_breakdown")
         with col_export[4]:
-            st.session_state.export_options['consumption_table'] = st.checkbox("Tabla de Consumo", value=st.session_state.export_options['consumption_table'])
+            st.session_state.export_options['consumption_table'] = st.checkbox("Tabla de Consumo", value=st.session_state.export_options['consumption_table'], key="export_consumption_table")
         with col_export[5]:
-            st.session_state.export_options['facturacion_table'] = st.checkbox("Tabla de Facturación", value=st.session_state.export_options['facturacion_table'])
+            st.session_state.export_options['facturacion_table'] = st.checkbox("Tabla de Facturación", value=st.session_state.export_options['facturacion_table'], key="export_facturacion_table")
         with col_export[6]:
-            st.session_state.export_options['individual_report'] = st.checkbox("Reporte Individual", value=st.session_state.export_options['individual_report'])
+            st.session_state.export_options['individual_report'] = st.checkbox("Reporte Individual", value=st.session_state.export_options['individual_report'], key="export_individual_report")
         with col_export[7]:
-            st.session_state.export_options['non_subsidized_commissions'] = st.checkbox("Comisiones No Subsidiadas", value=st.session_state.export_options['non_subsidized_commissions'])
+            st.session_state.export_options['non_subsidized_commissions'] = st.checkbox("Comisiones No Subsidiadas", value=st.session_state.export_options['non_subsidized_commissions'], key="export_non_subsidized_commissions")
 
         st.subheader("Selecciona la plantilla para el PDF")
         pdf_template_options = ['Ventas', 'Consumo por Empleado', 'Consumo por Productos', 'Consumo por Centro de Costos']
@@ -1018,7 +1020,7 @@ def main():
 
         col_btn = st.columns(3)
         with col_btn[0]:
-            if st.button("Exportar a Excel"):
+            if st.button("Exportar a Excel", key="export_excel"):
                 buffer = BytesIO()
                 with pd.ExcelWriter(buffer, engine='xlsxwriter') as writer:
                     total_revenue = (filtered_data['total'] * filtered_data['quantity']).sum() if not filtered_data.empty else 0
@@ -1056,22 +1058,24 @@ def main():
                     label="Descargar Excel",
                     data=buffer,
                     file_name=f"reporte_ventas_aseavna_{datetime.now().strftime('%Y-%m-%d')}.xlsx",
-                    mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
+                    mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+                    key="download_excel"
                 )
 
         with col_btn[1]:
-            if st.button("Exportar a CSV"):
+            if st.button("Exportar a CSV", key="export_csv"):
                 export_df = filtered_etiquetas.copy()
                 csv = export_df.to_csv(index=False)
                 st.download_button(
                     label="Descargar CSV",
                     data=csv,
                     file_name=f"reporte_ventas_aseavna_{datetime.now().strftime('%Y-%m-%d')}.csv",
-                    mime="text/csv"
+                    mime="text/csv",
+                    key="download_csv"
                 )
 
         with col_btn[2]:
-            if st.button("Exportar a PDF"):
+            if st.button("Exportar a PDF", key="export_pdf"):
                 with st.spinner("Generando PDF..."):
                     try:
                         configuration = pdfkit.configuration(wkhtmltopdf=WKHTMLTOPDF_PATH)
@@ -1084,7 +1088,8 @@ def main():
                                 label="Descargar PDF",
                                 data=pdf_data,
                                 file_name=f"reporte_ventas_aseavna_{datetime.now().strftime('%Y-%m-%d')}.pdf",
-                                mime="application/pdf"
+                                mime="application/pdf",
+                                key="download_pdf"
                             )
                         os.unlink(tmp_file.name)
                     except Exception as e:

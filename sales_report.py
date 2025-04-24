@@ -234,6 +234,11 @@ class ReporteVentas:
         if df.empty:
             return pd.DataFrame(columns=['Empleado', 'Producto', 'Suma de Cant. ordenada', 'Suma de Monto Cliente', 'Suma de Monto Subsidiado'])
 
+        # Ensure client_credit and quantity are numeric and handle NaN
+        df['client_credit'] = pd.to_numeric(df['client_credit'], errors='coerce').fillna(0)
+        df['quantity'] = pd.to_numeric(df['quantity'], errors='coerce').fillna(0)
+        df['aseavna_account'] = pd.to_numeric(df['aseavna_account'], errors='coerce').fillna(0)
+
         grouped = df.groupby(['client', 'display_name', 'tipo', 'product']).agg({
             'quantity': 'sum',
             'client_credit': 'sum',
@@ -277,9 +282,9 @@ class ReporteVentas:
         labels.append({
             'Empleado': 'Total general',
             'Producto': '',
-            'Suma de Cant. ordenada': total_quantity,
-            'Suma de Monto Cliente': total_client,
-            'Suma de Monto Subsidiado': total_subsidized
+            'Suma de Cant. ordenada': total_quantity if not pd.isna(total_quantity) else 0,
+            'Suma de Monto Cliente': total_client if not pd.isna(total_client) else 0,
+            'Suma de Monto Subsidiado': total_subsidized if not pd.isna(total_subsidized) else 0
         })
 
         return pd.DataFrame(labels)
@@ -402,7 +407,6 @@ class ReporteVentas:
                             .apply(lambda x: x['total'] * x['quantity'], axis=1)
                             .to_dict())
 
-        # Ensure sales_by_date has consistent structure
         sales_by_date_df = (filtered_df.groupby(filtered_df['date'].dt.strftime('%Y-%m-%d'))
                            .agg({'total': 'sum', 'quantity': 'sum'}))
         sales_by_date = (sales_by_date_df['total'] * sales_by_date_df['quantity']).to_dict()
@@ -429,16 +433,14 @@ class ReporteVentas:
 # Formatear números con el símbolo de colones
 def format_number(num: float, currency: str = 'CRC') -> str:
     """Format number as Costa Rican colones with fallback if locale is unavailable."""
-    if not isinstance(num, (int, float)) or pd.isna(num):
+    if not isinstance(num, (int, float)) or pd.isna(num) or num is None:
         return '₡0.00'
     
     try:
-        # Try setting the desired locale
         locale.setlocale(locale.LC_MONETARY, 'es_CR.UTF-8')
         return locale.currency(num, grouping=True, symbol=True)
-    except locale.Error:
-        # Fallback to manual formatting if locale is not available
-        formatted_num = f"{num:,.2f}"
+    except (locale.Error, ValueError):
+        formatted_num = f"{float(num):,.2f}" if isinstance(num, (int, float)) else "0.00"
         return f"₡{formatted_num}"
 
 # Cargar datos
@@ -681,7 +683,7 @@ def main():
             st.session_state.last_iva_rate = st.session_state.iva_rate
     reporte = st.session_state.reporte
     sales_data = reporte.datos
-    st.session_state.sales_data = sales_data  # Store sales_data in session_state for use in display_filters
+    st.session_state.sales_data = sales_data
 
     expected_columns = ['client', 'display_name', 'name', 'company', 'date', 'order', 'quantity', 'unit_price', 'total', 'base_price', 'product', 'seller', 'cedula', 'position', 'tipo', 'cost_center', 'is_subsidized', 'subsidy', 'employee_payment', 'employee_payment_base', 'asoavna_commission', 'iva', 'client_credit', 'aseavna_account']
     missing_columns = [col for col in expected_columns if col not in sales_data.columns]
@@ -694,7 +696,6 @@ def main():
     comisiones_no_subsidiadas_df, total_commission_non_subsidized = reporte.comisiones_no_subsidiadas
     reportes_individuales = reporte.reportes_individuales
 
-    # Inicializar estados de filtros
     if 'selected_tipo' not in st.session_state:
         st.session_state.selected_tipo = 'All'
     if 'date_range_start' not in st.session_state:
@@ -727,7 +728,6 @@ def main():
     if 'pdf_template' not in st.session_state:
         st.session_state.pdf_template = 'Ventas'
 
-    # Filtrar datos
     filtered_data = sales_data.copy()
     if st.session_state.selected_tipo != 'All':
         filtered_data = filtered_data[filtered_data['tipo'] == st.session_state.selected_tipo]
@@ -768,7 +768,6 @@ def main():
             lambda x: x[:17] + '...' if len(x) > 20 else x
         )
 
-    # Handle empty sales_trend_data to prevent KeyError
     sales_trend_data = pd.DataFrame([
         {'date': k, 'revenue': v} for k, v in aggregated['sales_by_date'].items()
     ])
@@ -785,7 +784,6 @@ def main():
 
     cost_breakdown_data = aggregated['cost_breakdown_by_tipo']
 
-    # Pestaña de Facturación
     with tabs[1]:
         with st.spinner("Procesando datos de facturación..."):
             display_filters("facturacion")
@@ -875,7 +873,6 @@ def main():
             ])
             st.dataframe(facturacion_adicional_df, use_container_width=True)
 
-    # Pestaña de Gráficos
     with tabs[2]:
         with st.spinner("Generando gráficos..."):
             display_filters("graficos")
@@ -923,16 +920,18 @@ def main():
                 else:
                     st.write("No hay datos para mostrar con los filtros actuales.")
 
-    # Pestaña de Historial de Consumo
     with tabs[3]:
         display_filters("historial")
         st.header("Historial de Consumo por Contacto (Etiquetas de la fila)")
         display_etiquetas = filtered_etiquetas.copy()
-        display_etiquetas['Suma de Monto Cliente'] = display_etiquetas['Suma de Monto Cliente'].apply(lambda x: format_number(x) if isinstance(x, (int, float)) else x)
-        display_etiquetas['Suma de Monto Subsidiado'] = display_etiquetas['Suma de Monto Subsidiado'].apply(lambda x: format_number(x) if isinstance(x, (int, float)) else x)
+        display_etiquetas['Suma de Monto Cliente'] = display_etiquetas['Suma de Monto Cliente'].apply(
+            lambda x: format_number(x) if isinstance(x, (int, float)) and not pd.isna(x) else x
+        )
+        display_etiquetas['Suma de Monto Subsidiado'] = display_etiquetas['Suma de Monto Subsidiado'].apply(
+            lambda x: format_number(x) if isinstance(x, (int, float)) and not pd.isna(x) else x
+        )
         st.dataframe(display_etiquetas, use_container_width=True)
 
-    # Pestaña de Reporte Individual
     with tabs[4]:
         display_filters("individual")
         st.header("Reporte Individual")
@@ -977,129 +976,55 @@ def main():
                 else:
                     st.write("No hay transacciones no subsidiadas para este cliente.")
             else:
-                st.write("No se encontraron datos para el cliente seleccionado.")
+                st.write("No hay datos disponibles para el cliente seleccionado.")
         else:
-            st.write("Selecciona un cliente para ver su reporte individual.")
+            st.write("Selecciona un cliente para ver el reporte individual.")
 
-    # Pestaña de Comisiones No Subsidiadas
     with tabs[5]:
         display_filters("comisiones")
-        st.header("Comisiones de Productos No Subsidiados")
-        st.write("Nota: La comisión para productos no subsidiados es del 5% por transacción.")
-        if not filtered_comisiones_df.empty:
-            comisiones_display = filtered_comisiones_df.copy()
-            comisiones_display['total'] = comisiones_display['total'].apply(format_number)
-            comisiones_display['base_price'] = comisiones_display['base_price'].apply(format_number)
-            comisiones_display['asoavna_commission'] = comisiones_display['asoavna_commission'].apply(format_number)
-            comisiones_display['iva'] = comisiones_display['iva'].apply(format_number)
-            st.dataframe(comisiones_display, use_container_width=True)
+        st.header("Comisiones No Subsidiadas")
+        if not filtered_comisiones.empty:
+            filtered_comisiones['total'] = filtered_comisiones['total'].apply(format_number)
+            filtered_comisiones['base_price'] = filtered_comisiones['base_price'].apply(format_number)
+            filtered_comisiones['asoavna_commission'] = filtered_comisiones['asoavna_commission'].apply(format_number)
+            filtered_comisiones['iva'] = filtered_comisiones['iva'].apply(format_number)
+            st.dataframe(filtered_comisiones, use_container_width=True)
+            st.metric("Total Comisiones No Subsidiadas", format_number(total_commission_non_subsidized))
         else:
-            st.write("No hay transacciones de productos no subsidiados con los filtros actuales.")
+            st.write("No hay comisiones no subsidiadas para mostrar con los filtros actuales.")
 
-    # Opciones de Exportación
-    with tabs[1], tabs[2], tabs[3], tabs[4], tabs[5]:
-        st.header("Opciones de Exportación")
-        col_export = st.columns(8)
-        with col_export[0]:
-            st.session_state.export_options['revenue_chart'] = st.checkbox("Gráfico de Ingresos por Cliente", value=st.session_state.export_options['revenue_chart'], key=f"export_revenue_chart_{tabs[1].__hash__()}")
-        with col_export[1]:
-            st.session_state.export_options['sales_trend'] = st.checkbox("Gráfico de Tendencia de Ventas", value=st.session_state.export_options['sales_trend'], key=f"export_sales_trend_{tabs[1].__hash__()}")
-        with col_export[2]:
-            st.session_state.export_options['product_pie'] = st.checkbox("Gráfico de Distribución de Productos", value=st.session_state.export_options['product_pie'], key=f"export_product_pie_{tabs[1].__hash__()}")
-        with col_export[3]:
-            st.session_state.export_options['cost_breakdown'] = st.checkbox("Gráfico de Desglose de Costos", value=st.session_state.export_options['cost_breakdown'], key=f"export_cost_breakdown_{tabs[1].__hash__()}")
-        with col_export[4]:
-            st.session_state.export_options['consumption_table'] = st.checkbox("Tabla de Consumo", value=st.session_state.export_options['consumption_table'], key=f"export_consumption_table_{tabs[1].__hash__()}")
-        with col_export[5]:
-            st.session_state.export_options['facturacion_table'] = st.checkbox("Tabla de Facturación", value=st.session_state.export_options['facturacion_table'], key=f"export_facturacion_table_{tabs[1].__hash__()}")
-        with col_export[6]:
-            st.session_state.export_options['individual_report'] = st.checkbox("Reporte Individual", value=st.session_state.export_options['individual_report'], key=f"export_individual_report_{tabs[1].__hash__()}")
-        with col_export[7]:
-            st.session_state.export_options['non_subsidized_commissions'] = st.checkbox("Comisiones No Subsidiadas", value=st.session_state.export_options['non_subsidized_commissions'], key=f"export_non_subsidized_commissions_{tabs[1].__hash__()}")
+    # Exportar a PDF
+    st.sidebar.header("Exportar Reporte")
+    pdf_template = st.sidebar.selectbox(
+        "Seleccionar Plantilla de PDF",
+        ['Ventas', 'Consumo por Empleado', 'Consumo por Productos', 'Consumo por Centro de Costos'],
+        index=['Ventas', 'Consumo por Empleado', 'Consumo por Productos', 'Consumo por Centro de Costos'].index(st.session_state.pdf_template),
+        key="pdf_template_select"
+    )
+    if pdf_template != st.session_state.pdf_template:
+        st.session_state.pdf_template = pdf_template
+        st.rerun()
 
-        st.subheader("Selecciona la plantilla para el PDF")
-        pdf_template_options = ['Ventas', 'Consumo por Empleado', 'Consumo por Productos', 'Consumo por Centro de Costos']
-        selected_pdf_template = st.selectbox("Plantilla de PDF", pdf_template_options, index=pdf_template_options.index(st.session_state.pdf_template), key=f"pdf_template_select_{tabs[1].__hash__()}")
-        if selected_pdf_template != st.session_state.pdf_template:
-            st.session_state.pdf_template = selected_pdf_template
-            st.rerun()
+    if st.sidebar.button("Generar PDF"):
+        with st.spinner("Generando PDF..."):
+            try:
+                html_content = generate_pdf_content(facturacion_df, facturacion_adicional_df, filtered_etiquetas, filtered_data, st.session_state.pdf_template, current_date)
+                with tempfile.NamedTemporaryFile(delete=False, suffix='.html') as tmp_html:
+                    tmp_html.write(html_content.encode('utf-8'))
+                    tmp_html_path = tmp_html.name
 
-        col_btn = st.columns(3)
-        with col_btn[0]:
-            if st.button("Exportar a Excel", key=f"export_excel_{tabs[1].__hash__()}"):
-                buffer = BytesIO()
-                with pd.ExcelWriter(buffer, engine='xlsxwriter') as writer:
-                    total_revenue = (filtered_data['total'] * filtered_data['quantity']).sum() if not filtered_data.empty else 0
-                    total_subsidies = (filtered_data['subsidy'] * filtered_data['quantity']).sum() if not filtered_data.empty else 0
-                    average_transaction = total_revenue / len(filtered_data) if len(filtered_data) > 0 else 0
-                    summary_data = pd.DataFrame([
-                        ['Métricas Principales', ''],
-                        ['Ingresos Totales', format_number(total_revenue)],
-                        ['Subsidios Totales', format_number(total_subsidies)],
-                        ['Transacción Promedio', format_number(average_transaction)],
-                        ['Transacciones Totales', len(filtered_data)],
-                        ['Clientes Únicos', filtered_data['display_name'].nunique() if not filtered_data.empty else 0]
-                    ], columns=['Métrica', 'Valor'])
-                    summary_data.to_excel(writer, sheet_name='Resumen', index=False)
+                pdf_output = BytesIO()
+                config = pdfkit.configuration(wkhtmltopdf=WKHTMLTOPDF_PATH)
+                pdfkit.from_file(tmp_html_path, pdf_output, configuration=config)
+                os.unlink(tmp_html_path)
 
-                    if st.session_state.export_options['consumption_table']:
-                        export_etiquetas = filtered_etiquetas.copy()
-                        export_etiquetas.to_excel(writer, sheet_name='Consumo', index=False)
-
-                    if st.session_state.export_options['facturacion_table']:
-                        facturacion_data = pd.concat([facturacion_df, facturacion_adicional_df], ignore_index=True)
-                        facturacion_data.to_excel(writer, sheet_name='Facturación', index=False)
-
-                    if st.session_state.export_options['individual_report']:
-                        for client, datos in reportes_individuales.items():
-                            client_df = datos['transacciones'][['date', 'product', 'quantity', 'total', 'subsidy', 'employee_payment', 'asoavna_commission', 'client_credit', 'aseavna_account', 'iva']]
-                            client_df.to_excel(writer, sheet_name=f'Cliente_{client[:20]}', index=False)
-
-                    if st.session_state.export_options['non_subsidized_commissions']:
-                        comisiones_df = filtered_comisiones_df[['display_name', 'product', 'total', 'base_price', 'asoavna_commission', 'iva']]
-                        comisiones_df.to_excel(writer, sheet_name='Comisiones_No_Subsidiadas', index=False)
-
-                buffer.seek(0)
-                st.download_button(
-                    label="Descargar Excel",
-                    data=buffer,
-                    file_name=f"reporte_ventas_aseavna_{datetime.now().strftime('%Y-%m-%d')}.xlsx",
-                    mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
-                    key=f"download_excel_{tabs[1].__hash__()}"
-                )
-
-        with col_btn[1]:
-            if st.button("Exportar a CSV", key=f"export_csv_{tabs[1].__ TELEFONIAhash__()}"):
-                export_df = filtered_etiquetas.copy()
-                csv = export_df.to_csv(index=False)
-                st.download_button(
-                    label="Descargar CSV",
-                    data=csv,
-                    file_name=f"reporte_ventas_aseavna_{datetime.now().strftime('%Y-%m-%d')}.csv",
-                    mime="text/csv",
-                    key=f"download_csv_{tabs[1].__hash__()}"
-                )
-
-        with col_btn[2]:
-            if st.button("Exportar a PDF", key=f"export_pdf_{tabs[1].__hash__()}"):
-                with st.spinner("Generando PDF..."):
-                    try:
-                        configuration = pdfkit.configuration(wkhtmltopdf=WKHTMLTOPDF_PATH)
-                        html_content = generate_pdf_content(facturacion_df, facturacion_adicional_df, filtered_etiquetas, filtered_data, st.session_state.pdf_template, current_date)
-                        with tempfile.NamedTemporaryFile(delete=False, suffix='.pdf') as tmp_file:
-                            pdfkit.from_string(html_content, tmp_file.name, configuration=configuration)
-                            with open(tmp_file.name, "rb") as f:
-                                pdf_data = f.read()
-                            st.download_button(
-                                label="Descargar PDF",
-                                data=pdf_data,
-                                file_name=f"reporte_ventas_aseavna_{datetime.now().strftime('%Y-%m-%d')}.pdf",
-                                mime="application/pdf",
-                                key=f"download_pdf_{tabs[1].__hash__()}"
-                            )
-                        os.unlink(tmp_file.name)
-                    except Exception as e:
-                        st.warning(f"No se pudo generar el PDF. Asegúrate de que pdfkit y wkhtmltopdf estén instalados correctamente. Error: {e}")
+                pdf_data = pdf_output.getvalue()
+                b64_pdf = base64.b64encode(pdf_data).decode('utf-8')
+                href = f'<a href="data:application/pdf;base64,{b64_pdf}" download="reporte_ventas.pdf">Descargar PDF</a>'
+                st.sidebar.markdown(href, unsafe_allow_html=True)
+                st.sidebar.success("PDF generado exitosamente.")
+            except Exception as e:
+                st.sidebar.error(f"Error al generar el PDF: {e}")
 
 if __name__ == "__main__":
     main()

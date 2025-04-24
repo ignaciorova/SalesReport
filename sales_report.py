@@ -427,11 +427,18 @@ class ReporteVentas:
 
 # Formatear números con el símbolo de colones
 def format_number(num: float, currency: str = 'CRC') -> str:
-    """Format number as Costa Rican colones."""
+    """Format number as Costa Rican colones with fallback if locale is unavailable."""
     if not isinstance(num, (int, float)) or pd.isna(num):
         return '₡0.00'
-    locale.setlocale(locale.LC_MONETARY, 'es_CR.UTF-8')
-    return locale.currency(num, grouping=True, symbol=True)
+    
+    try:
+        # Try setting the desired locale
+        locale.setlocale(locale.LC_MONETARY, 'es_CR.UTF-8')
+        return locale.currency(num, grouping=True, symbol=True)
+    except locale.Error:
+        # Fallback to manual formatting if locale is not available
+        formatted_num = f"{num:,.2f}"
+        return f"₡{formatted_num}"
 
 # Cargar datos
 @st.cache_data
@@ -487,7 +494,7 @@ def generate_pdf_content(facturacion_df: pd.DataFrame, facturacion_adicional_df:
         html_content += "<h2>Desglose de Facturación (solo Almuerzo Ejecutivo Aseavna)</h2>"
         html_content += facturacion_df.to_html(index=False, escape=True, classes='facturacion-table', formatters={
             'BEN1_70 Con 5% para ASOANVA': lambda x: f"{x:,.2f}" if isinstance(x, (int, float)) else x,
-            'BEN2_62 Con 5% para ASOANVA': lambda x: f"{x:,.2f}" if isinstance(x, (int, float)) else x,
+            'BEN2_62 Con 5% para ASOANVA': lambda x: f"{x:,. Lloyd2f}" if isinstance(x, (int, float)) else x,
             'Total': lambda x: f"{x:,.2f}" if isinstance(x, (int, float)) else x
         })
         html_content += "<h2>Facturación Adicional</h2>"

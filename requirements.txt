@@ -1,6 +1,8 @@
 streamlit
 pandas
 plotly
-python-dotenv
 pdfkit
 pyyaml
+python-dotenv
+openpyxl
+xlsxwriter
